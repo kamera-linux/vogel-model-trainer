@@ -1,60 +1,114 @@
-# Vogel Model Trainer
+# 🐦 Vogel Model Trainer
 
-🐦 **Train custom bird species classifiers from your own video footage**
+**Languages:** [🇬🇧 English](README.md) | [🇩🇪 Deutsch](README.de.md)
 
-[![PyPI version](https://badge.fury.io/py/vogel-model-trainer.svg)](https://pypi.org/project/vogel-model-trainer/)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<p align="left">
+  <a href="https://pypi.org/project/vogel-model-trainer/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/vogel-model-trainer.svg"></a>
+  <a href="https://pypi.org/project/vogel-model-trainer/"><img alt="Python Versions" src="https://img.shields.io/pypi/pyversions/vogel-model-trainer.svg"></a>
+  <a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
+</p>
 
-[English](#english) | [Deutsch](#deutsch)
+**Train custom bird species classifiers from your own video footage using YOLOv8 and EfficientNet.**
+
+A specialized toolkit for creating high-accuracy bird species classifiers tailored to your specific monitoring setup. Extract training data from videos, organize datasets, and train custom models with >96% accuracy.
 
 ---
 
-<a name="english"></a>
-## �🇧 English
+## ✨ Features
 
-### �🎯 What is this?
+- 🎯 **YOLO-based Bird Detection** - Automated bird cropping from videos using YOLOv8
+- 🤖 **Three Extraction Modes** - Manual labeling, auto-sorting, or standard extraction
+- 📁 **Wildcard Support** - Batch process multiple videos with glob patterns
+- 🖼️ **Auto-Resize to 224x224** - Optimal image size for training
+- 🧠 **EfficientNet-B0 Training** - Lightweight yet powerful classification model
+- 🎨 **Enhanced Data Augmentation** - Rotation, affine transforms, color jitter, gaussian blur
+- 📊 **Optimized Training** - Cosine LR scheduling, label smoothing, early stopping
+- ⏸️ **Graceful Shutdown** - Save model state on Ctrl+C interruption
+- 🔄 **Iterative Training** - Use trained models to expand your dataset
+- 📈 **Per-Species Metrics** - Detailed accuracy breakdown by species
 
-`vogel-model-trainer` is a specialized tool for training custom bird species classifiers from your own birdhouse videos. Perfect for:
+---
 
-- 🏠 Birdhouse monitoring with specific European species
-- 📹 Extracting training data from videos
-- 🤖 Training with EfficientNet on your own data
-- 🎓 Iterative training for >96% accuracy
+## 🚀 Quick Start
 
-### 🚀 Installation
+### Installation
 
 ```bash
+# Install from PyPI
 pip install vogel-model-trainer
-```
 
-#### Development Installation
-
-```bash
+# Or install from source
 git clone https://github.com/kamera-linux/vogel-model-trainer.git
 cd vogel-model-trainer
-pip install -e ".[dev]"
+pip install -e .
 ```
 
-### 📋 Quick Start
-
-#### 1. Extract images from videos
+### Basic Workflow
 
 ```bash
-# Manual sorting (when you know the species)
-vogel-trainer extract video.mp4 \
+# 1. Extract bird images from videos
+vogel-trainer extract video.mp4 --bird great-tit --output ~/training-data/
+
+# 2. Organize into train/validation split
+vogel-trainer organize --source ~/training-data/ --output ~/training-data/organized/
+
+# 3. Train custom classifier
+vogel-trainer train --data ~/training-data/organized/ --output ~/models/
+
+# 4. Test the trained model
+vogel-trainer test ~/models/final/ test_image.jpg
+```
+
+---
+
+## 📖 Usage Guide
+
+### 1. Extract Training Images
+
+#### Manual Mode (Recommended for Initial Collection)
+
+When you know the species in your video:
+
+```bash
+vogel-trainer extract ~/Videos/great-tit-*.mp4 \
   --bird great-tit \
   --output ~/training-data/ \
-  --threshold 0.5
+  --threshold 0.5 \
+  --sample-rate 3
+```
 
-# Auto-sorting with existing model
-vogel-trainer extract "videos/*.mp4" \
-  --species-model ~/models/classifier/ \
+#### Auto-Sort Mode (For Iterative Training)
+
+Use an existing model to automatically classify and sort:
+
+```bash
+vogel-trainer extract ~/Videos/mixed-*.mp4 \
+  --species-model ~/models/classifier/final/ \
   --output ~/training-data/ \
+  --threshold 0.6
+```
+
+#### Batch Processing with Wildcards
+
+```bash
+# Process all videos in a directory
+vogel-trainer extract "~/Videos/*.mp4" --bird blue-tit --output ~/data/
+
+# Recursive directory search
+vogel-trainer extract ~/Videos/ \
+  --species-model ~/models/classifier/final/ \
+  --output ~/data/ \
   --recursive
 ```
 
-#### 2. Organize dataset
+**Parameters:**
+- `--threshold`: YOLO confidence threshold (default: 0.5)
+- `--sample-rate`: Process every Nth frame (default: 3)
+- `--bird`: Manual species label
+- `--species-model`: Path to trained model for auto-classification
+- `--no-resize`: Keep original image size (default: resize to 224x224)
+
+### 2. Organize Dataset
 
 ```bash
 vogel-trainer organize \
@@ -63,7 +117,20 @@ vogel-trainer organize \
   --train-ratio 0.8
 ```
 
-#### 3. Train model
+Creates an 80/20 train/validation split:
+```
+organized/
+├── train/
+│   ├── great-tit/
+│   ├── blue-tit/
+│   └── robin/
+└── val/
+    ├── great-tit/
+    ├── blue-tit/
+    └── robin/
+```
+
+### 3. Train Classifier
 
 ```bash
 vogel-trainer train \
@@ -73,292 +140,145 @@ vogel-trainer train \
   --batch-size 16
 ```
 
-#### 4. Test model
+**Training Configuration:**
+- Base Model: `google/efficientnet-b0` (8.5M parameters)
+- Optimizer: AdamW with cosine LR schedule
+- Augmentation: Rotation, affine, color jitter, gaussian blur
+- Regularization: Weight decay 0.01, label smoothing 0.1
+- Early Stopping: Patience of 7 epochs
+
+**Output:**
+```
+~/models/bird-classifier-20251108_143000/
+├── checkpoints/     # Intermediate checkpoints
+├── logs/           # TensorBoard logs
+└── final/          # Final trained model
+    ├── config.json
+    ├── model.safetensors
+    └── preprocessor_config.json
+```
+
+### 4. Test Model
 
 ```bash
+# Test on single image
 vogel-trainer test ~/models/final/ image.jpg
+
+# Output:
+# 🖼️  Testing: image.jpg
+#    🐦 Predicted: great-tit (98.5% confidence)
 ```
-
-### 🛠️ Features
-
-- ✅ **YOLO-based bird detection** with automatic cropping
-- ✅ **3 extraction modes**: Manual, Auto-Sort, Standard
-- ✅ **Wildcard & recursive processing** for batch operations
-- ✅ **Automatic 224x224 resizing** for optimal training
-- ✅ **EfficientNet-B0** as base model (8.5M parameters)
-- ✅ **Enhanced data augmentation** (Rotation, Affine, ColorJitter, GaussianBlur)
-- ✅ **Optimized training** (Cosine LR, Label Smoothing, Early Stopping)
-- ✅ **Graceful shutdown** with Ctrl+C and model saving
-- ✅ **Automatic species detection** from directory structure
-
-### 📚 Example Workflow
-
-#### Initial Data Collection
-
-```bash
-# Extract images from different species
-vogel-trainer extract ~/Videos/great-tit*.mp4 --bird great-tit --output ~/data/
-vogel-trainer extract ~/Videos/blue-tit*.mp4 --bird blue-tit --output ~/data/
-vogel-trainer extract ~/Videos/robin*.mp4 --bird robin --output ~/data/
-
-# Organize dataset
-vogel-trainer organize --source ~/data/ --output ~/data/organized/
-
-# Train model
-vogel-trainer train --data ~/data/organized/ --output ~/models/
-```
-
-#### Iterative Training
-
-```bash
-# 1. Use trained model for auto-extraction
-vogel-trainer extract ~/Videos/new_videos/ \
-  --species-model ~/models/bird-classifier-*/final/ \
-  --output ~/data/iteration2/ \
-  --recursive
-
-# 2. Review and combine data
-# (Manually move misclassified images)
-
-# 3. Retrain with extended data
-vogel-trainer organize --source ~/data/combined/
-vogel-trainer train --data ~/data/combined/organized/
-```
-
-### 🎓 Training Configuration
-
-**Optimized Hyperparameters:**
-- Base Model: `google/efficientnet-b0`
-- Epochs: 50 (Early Stopping after 7 epochs)
-- Batch Size: 16
-- Learning Rate: 2e-4 with Cosine Annealing
-- Image Size: 224x224px
-- Weight Decay: 0.01
-- Label Smoothing: 0.1
-
-**Data Augmentation:**
-- RandomResizedCrop (70-100% scale)
-- RandomRotation (±15°)
-- RandomAffine (10% translation)
-- ColorJitter (Brightness/Contrast/Saturation)
-- GaussianBlur (Focus variations)
-
-### 📊 Performance
-
-**Dataset Sizes:**
-- **Minimum:** ~20-30 images per species
-- **Good:** ~50-100 images per species  
-- **Optimal:** 100+ images per species
-
-**Results:**
-- **Validation Accuracy:** 96%+ with good data
-- **Training Time:** ~3-4 hours (500 images, 5 species, Raspberry Pi 5)
-- **Per-Species Accuracy:** 95-100% with balanced classes
-
-### 🔗 Integration
-
-#### With vogel-video-analyzer
-
-```bash
-# Use trained model in vogel-analyze
-vogel-analyze --identify-species \
-  --species-model ~/models/final/ \
-  --species-threshold 0.3 \
-  video.mp4
-```
-
-### 📖 Documentation
-
-For detailed documentation and examples, visit the [GitHub Repository](https://github.com/kamera-linux/vogel-model-trainer).
-
-### 🤝 Contributing
-
-Contributions are welcome! Please create a pull request or open an issue.
-
-### 📝 License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-### 🙏 Credits
-
-- YOLO by [Ultralytics](https://github.com/ultralytics/ultralytics)
-- EfficientNet by [Google](https://github.com/google/automl)
-- Transformers by [Hugging Face](https://huggingface.co/transformers)
 
 ---
 
-<a name="deutsch"></a>
-## 🇩🇪 Deutsch
+## 🔄 Iterative Training Workflow
 
-### 🎯 Was ist das?
-
-`vogel-model-trainer` ist ein spezialisiertes Tool zum Trainieren von Custom Bird Species Classifiers aus eigenen Vogelhaus-Videos. Perfekt für:
-
-- 🏠 Vogelhaus-Monitoring mit spezifischen europäischen Arten
-- 📹 Extraktion von Trainingsdaten aus Videos
-- 🤖 Training mit EfficientNet auf deinen eigenen Daten
-- 🎓 Iteratives Training für >96% Accuracy
+Improve your model by iteratively expanding your dataset:
 
 ```bash
-pip install vogel-model-trainer
-```
-
-### Development Installation
-
-```bash
-git clone https://github.com/kamera-linux/vogel-model-trainer.git
-cd vogel-model-trainer
-pip install -e ".[dev]"
-```
-
-## 📋 Quick Start
-
-### 1. Bilder aus Videos extrahieren
-
-```bash
-# Manuelle Sortierung (wenn du die Art kennst)
-vogel-trainer extract video.mp4 \
-  --bird kohlmeise \
-  --output ~/training-data/ \
-  --threshold 0.5
-
-# Auto-Sortierung mit bestehendem Modell
-vogel-trainer extract "videos/*.mp4" \
-  --species-model ~/models/classifier/ \
-  --output ~/training-data/ \
-  --recursive
-```
-
-### 2. Dataset organisieren
-
-```bash
-vogel-trainer organize \
-  --source ~/training-data/ \
-  --output ~/training-data/organized/ \
-  --train-ratio 0.8
-```
-
-### 3. Modell trainieren
-
-```bash
-vogel-trainer train \
-  --data ~/training-data/organized/ \
-  --output ~/models/ \
-  --epochs 50 \
-  --batch-size 16
-```
-
-### 4. Modell testen
-
-```bash
-vogel-trainer test ~/models/final/ image.jpg
-```
-
-## 🛠️ Features
-
-- ✅ **YOLO-basierte Bird Detection** mit automatischem Cropping
-- ✅ **3 Extraktions-Modi**: Manual, Auto-Sort, Standard
-- ✅ **Wildcard & Recursive Processing** für Batch-Operationen
-- ✅ **Automatic 224x224 Resizing** für optimales Training
-- ✅ **EfficientNet-B0** als Basis-Modell (8.5M Parameter)
-- ✅ **Enhanced Data Augmentation** (Rotation, Affine, ColorJitter, GaussianBlur)
-- ✅ **Optimized Training** (Cosine LR, Label Smoothing, Early Stopping)
-- ✅ **Graceful Shutdown** mit Strg+C und Modell-Speicherung
-- ✅ **Automatic Species Detection** aus Verzeichnis-Struktur
-
-## 📚 Workflow-Beispiel
-
-### Erste Datensammlung
-
-```bash
-# Extrahiere Bilder von verschiedenen Arten
-vogel-trainer extract ~/Videos/kohlmeise*.mp4 --bird kohlmeise --output ~/data/
-vogel-trainer extract ~/Videos/blaumeise*.mp4 --bird blaumeise --output ~/data/
-vogel-trainer extract ~/Videos/rotkehlchen*.mp4 --bird rotkehlchen --output ~/data/
-
-# Organisiere Dataset
+# 1. Initial training with manual labels
+vogel-trainer extract ~/Videos/batch1/*.mp4 --bird great-tit --output ~/data/
 vogel-trainer organize --source ~/data/ --output ~/data/organized/
+vogel-trainer train --data ~/data/organized/ --output ~/models/v1/
 
-# Trainiere Modell
-vogel-trainer train --data ~/data/organized/ --output ~/models/
+# 2. Use trained model to extract more data
+vogel-trainer extract ~/Videos/batch2/*.mp4 \
+  --species-model ~/models/v1/final/ \
+  --output ~/data/iteration2/
+
+# 3. Review and correct misclassifications manually
+# Move incorrect predictions to correct species folders
+
+# 4. Combine datasets and retrain
+cp -r ~/data/iteration2/* ~/data/
+vogel-trainer organize --source ~/data/ --output ~/data/organized/
+vogel-trainer train --data ~/data/organized/ --output ~/models/v2/
+
+# Result: Higher accuracy! 🎉
 ```
 
-### Iteratives Training
+---
+
+## 📊 Performance & Best Practices
+
+### Dataset Size Recommendations
+
+| Quality | Images per Species | Expected Accuracy |
+|---------|-------------------|-------------------|
+| Minimum | 20-30            | ~85-90%          |
+| Good    | 50-100           | ~92-96%          |
+| Optimal | 100+             | >96%             |
+
+### Tips for Better Results
+
+1. **Dataset Diversity**
+   - Include various lighting conditions
+   - Capture different poses (side, front, back)
+   - Cover different seasons (plumage changes)
+
+2. **Class Balance**
+   - Aim for similar image counts per species
+   - Avoid having one dominant class
+
+3. **Quality Over Quantity**
+   - Use threshold 0.5-0.6 for clear detections
+   - Manual review of auto-sorted images improves quality
+
+4. **Monitor Training**
+   - Check per-class accuracy for weak species
+   - Use confusion matrix to identify similar species
+   - Add more data for low-performing classes
+
+---
+
+## 🔗 Integration with vogel-video-analyzer
+
+Use your trained model for species identification:
 
 ```bash
-# 1. Nutze trainiertes Modell für Auto-Extraktion
-vogel-trainer extract ~/Videos/neue_videos/ \
-  --species-model ~/models/bird-classifier-*/final/ \
-  --output ~/data/iteration2/ \
-  --recursive
-
-# 2. Review und kombiniere Daten
-# (Manuelles Verschieben falscher Klassifizierungen)
-
-# 3. Neues Training mit erweiterten Daten
-vogel-trainer organize --source ~/data/combined/
-vogel-trainer train --data ~/data/combined/organized/
-```
-
-## 🎓 Training-Konfiguration
-
-**Optimierte Hyperparameter:**
-- Basis-Modell: `google/efficientnet-b0`
-- Epochs: 50 (Early Stopping nach 7 Epochen)
-- Batch Size: 16
-- Learning Rate: 2e-4 mit Cosine Annealing
-- Image Size: 224x224px
-- Weight Decay: 0.01
-- Label Smoothing: 0.1
-
-**Data Augmentation:**
-- RandomResizedCrop (70-100% scale)
-- RandomRotation (±15°)
-- RandomAffine (10% translation)
-- ColorJitter (Brightness/Contrast/Saturation)
-- GaussianBlur (Fokus-Variationen)
-
-## 📊 Erfahrungswerte
-
-### Datenmengen
-- **Minimum:** ~20-30 Bilder pro Art
-- **Gut:** ~50-100 Bilder pro Art  
-- **Optimal:** 100+ Bilder pro Art
-
-### Performance
-- **Validation Accuracy:** 96%+ bei guten Daten
-- **Training Zeit:** ~3-4 Stunden (500 Bilder, 5 Arten, Raspberry Pi 5)
-- **Per-Species Accuracy:** 95-100% bei ausgewogenen Klassen
-
-## 🔗 Integration
-
-### Mit vogel-video-analyzer
-
-```bash
-# Nutze trainiertes Modell in vogel-analyze
 vogel-analyze --identify-species \
   --species-model ~/models/final/ \
   --species-threshold 0.3 \
   video.mp4
 ```
 
-## 📖 Dokumentation
+---
 
-Ausführliche Dokumentation und Beispiele findest du im [GitHub Repository](https://github.com/kamera-linux/vogel-model-trainer).
+## 🛠️ Development
 
-## 🤝 Contributing
+```bash
+# Clone repository
+git clone https://github.com/kamera-linux/vogel-model-trainer.git
+cd vogel-model-trainer
 
-Contributions sind willkommen! Bitte erstelle einen Pull Request oder öffne ein Issue.
+# Install in development mode
+pip install -e ".[dev]"
+
+# Run tests
+pytest tests/
+```
+
+---
 
 ## 📝 License
 
-MIT License - siehe [LICENSE](LICENSE) für Details.
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
 
 ## 🙏 Credits
 
-- YOLO von [Ultralytics](https://github.com/ultralytics/ultralytics)
-- EfficientNet von [Google](https://github.com/google/automl)
-- Transformers von [Hugging Face](https://huggingface.co/transformers)
+- **YOLO** by [Ultralytics](https://github.com/ultralytics/ultralytics)
+- **EfficientNet** by [Google Research](https://github.com/google/automl)
+- **Transformers** by [Hugging Face](https://huggingface.co/transformers)
+
+---
+
+## 📮 Support & Contributing
+
+- **Issues**: [GitHub Issues](https://github.com/kamera-linux/vogel-model-trainer/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/kamera-linux/vogel-model-trainer/discussions)
+- **Pull Requests**: Contributions welcome!
 
 ---
 
