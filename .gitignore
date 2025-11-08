@@ -65,6 +65,9 @@ venv.bak/
 .DS_Store
 Thumbs.db
 
+# PyPI credentials
+.pypirc
+
 # Project specific
 *.mp4
 *.avi
