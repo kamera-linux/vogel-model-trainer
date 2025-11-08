@@ -1,38 +1,49 @@
 ---
-name: Bug report
-about: Create a report to help us improve
-title: ''
-labels: ''
+name: Bug Report
+about: Report a bug or unexpected behavior in vogel-model-trainer
+title: '[BUG] '
+labels: 'bug'
 assignees: ''
 
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+## 🐛 Bug Description
+<!-- A clear and concise description of what the bug is -->
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+## 📝 Steps to Reproduce
+1. 
+2. 
+3. 
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+## ✅ Expected Behavior
+<!-- What you expected to happen -->
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+## ❌ Actual Behavior
+<!-- What actually happened -->
 
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
+## 🎯 Training/Dataset Information
+<!-- If applicable -->
+- Mode: [e.g., extract, extract-manual, extract-auto, train]
+- Dataset Size: [e.g., 500 images, 10 videos]
+- Number of Classes: [e.g., 5 bird species]
+- Model: [e.g., EfficientNet-B0, custom]
 
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
+## 💻 Environment
+- OS: [e.g., Ubuntu 22.04, Windows 11, macOS 14]
+- Python Version: [e.g., 3.11.5]
+- vogel-model-trainer Version: [e.g., 0.1.0]
+- Installation Method: [e.g., pip, pip install from git]
 
-**Additional context**
-Add any other context about the problem here.
+## 📋 Error Output
+<!-- Please include the full error message/traceback -->
+```
+Paste error output here
+```
+
+## 🔍 Additional Context
+<!-- Add any other context about the problem here -->
+
+## ✔️ Checklist
+- [ ] I have searched existing issues to ensure this is not a duplicate
+- [ ] I have included all relevant information above
+- [ ] I can reproduce this issue consistently
