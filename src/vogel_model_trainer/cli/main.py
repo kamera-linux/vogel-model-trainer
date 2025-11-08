@@ -3,9 +3,7 @@
 Command-line interface for vogel-model-trainer.
 
 Provides commands for:
-- extract: Extract bird images from videos
-- extract-manual: Extract with manual species labeling
-- extract-auto: Extract with automatic species sorting
+- extract: Extract bird images from videos (with optional manual or auto-sorting)
 - organize: Organize dataset into train/val splits
 - train: Train a custom bird species classifier
 - test: Test and evaluate a trained model
@@ -20,34 +18,26 @@ def extract_command(args):
     """Execute the extract command."""
     from vogel_model_trainer.core import extractor
     
-    print(f"🎯 Extracting birds from: {args.video}")
-    print(f"📁 Output directory: {args.output}")
+    print(f"� Extracting birds from: {args.video}")
+    print(f"📁 Output folder: {args.folder}")
     
-    # Call the extraction function
+    if args.bird:
+        print(f"🐦 Species: {args.bird}")
+    if args.species_model:
+        print(f"🤖 Using species classifier: {args.species_model}")
+    
+    # Call the extraction function with all parameters
     extractor.extract_birds_from_video(
-        video_path=args.video,
-        output_dir=args.output,
-        model_path=args.model,
-        threshold=args.threshold,
+        video_pattern=args.video,
+        base_folder=args.folder,
+        bird_name=args.bird,
+        species_model_path=args.species_model,
+        resize=(not args.no_resize),
+        detection_model_path=args.detection_model,
+        confidence_threshold=args.threshold,
         sample_rate=args.sample_rate,
-        target_class=14  # Bird class in COCO
+        recursive=args.recursive
     )
-
-
-def extract_manual_command(args):
-    """Execute the extract-manual command (interactive labeling)."""
-    print("🏷️  Manual labeling mode")
-    print("This feature will be implemented in a future update.")
-    print("For now, please use 'extract' and manually sort images.")
-    sys.exit(1)
-
-
-def extract_auto_command(args):
-    """Execute the extract-auto command (automatic sorting with pre-trained model)."""
-    print("🤖 Auto-sorting mode")
-    print("This feature will be implemented in a future update.")
-    print("For now, please use 'extract' and manually sort images.")
-    sys.exit(1)
 
 
 def organize_command(args):
@@ -105,11 +95,20 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Extract birds from a video
-  vogel-trainer extract video.mp4 -o training-data/kohlmeise/
+  # Standard mode: Extract all birds to one directory
+  vogel-trainer extract video.mp4 --folder training-data/
 
-  # Process multiple videos with wildcards
-  vogel-trainer extract videos/*.mp4 -o training-data/
+  # Manual mode: Specify bird species (creates subdirectory)
+  vogel-trainer extract video.mp4 --folder data/ --bird rotkehlchen
+
+  # Multiple videos with wildcards
+  vogel-trainer extract "~/Videos/*.mp4" --folder data/ --bird kohlmeise
+
+  # Auto-sort mode with species classifier
+  vogel-trainer extract video.mp4 --folder data/ --species-model ~/models/classifier/
+
+  # Recursive directory search
+  vogel-trainer extract "~/Videos/" --folder data/ --bird amsel --recursive
 
   # Organize dataset (80/20 train/val split)
   vogel-trainer organize training-data/ -o organized-data/
@@ -128,7 +127,7 @@ For more information, visit:
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 0.1.0"
+        version="%(prog)s 0.1.1"
     )
     
     subparsers = parser.add_subparsers(
@@ -145,98 +144,49 @@ For more information, visit:
     )
     extract_parser.add_argument(
         "video",
-        help="Video file to process (supports wildcards)"
+        help="Video file, directory, or glob pattern (e.g., '*.mp4', '~/Videos/**/*.mp4')"
     )
     extract_parser.add_argument(
-        "-o", "--output",
+        "--folder",
         required=True,
-        help="Output directory for extracted images"
+        help="Base directory for extracted bird images"
     )
     extract_parser.add_argument(
-        "--model",
+        "--bird",
+        help="Manual bird species name (e.g., rotkehlchen, kohlmeise). Creates subdirectory."
+    )
+    extract_parser.add_argument(
+        "--species-model",
+        help="Path to custom species classifier for automatic sorting"
+    )
+    extract_parser.add_argument(
+        "--no-resize",
+        action="store_true",
+        help="Keep original image size instead of resizing to 224x224px"
+    )
+    extract_parser.add_argument(
+        "--detection-model",
         default="yolov8n.pt",
-        help="YOLO model path (default: yolov8n.pt)"
+        help="YOLO detection model path (default: yolov8n.pt)"
     )
     extract_parser.add_argument(
         "--threshold",
         type=float,
-        default=0.3,
-        help="Detection confidence threshold (default: 0.3)"
+        default=0.5,
+        help="Detection confidence threshold (default: 0.5 for high quality)"
     )
     extract_parser.add_argument(
         "--sample-rate",
         type=int,
-        default=10,
-        help="Process every Nth frame (default: 10)"
+        default=3,
+        help="Analyze every Nth frame (default: 3)"
+    )
+    extract_parser.add_argument(
+        "--recursive", "-r",
+        action="store_true",
+        help="Search directories recursively for video files"
     )
     extract_parser.set_defaults(func=extract_command)
-    
-    # ========== EXTRACT-MANUAL COMMAND ==========
-    extract_manual_parser = subparsers.add_parser(
-        "extract-manual",
-        help="Extract with interactive species labeling",
-        description="Extract birds and manually label species during extraction"
-    )
-    extract_manual_parser.add_argument(
-        "video",
-        help="Video file to process"
-    )
-    extract_manual_parser.add_argument(
-        "-o", "--output",
-        required=True,
-        help="Output directory for organized images"
-    )
-    extract_manual_parser.add_argument(
-        "--model",
-        default="yolov8n.pt",
-        help="YOLO model path (default: yolov8n.pt)"
-    )
-    extract_manual_parser.add_argument(
-        "--threshold",
-        type=float,
-        default=0.3,
-        help="Detection confidence threshold (default: 0.3)"
-    )
-    extract_manual_parser.set_defaults(func=extract_manual_command)
-    
-    # ========== EXTRACT-AUTO COMMAND ==========
-    extract_auto_parser = subparsers.add_parser(
-        "extract-auto",
-        help="Extract with automatic species sorting",
-        description="Extract birds and automatically sort by species using a pre-trained classifier"
-    )
-    extract_auto_parser.add_argument(
-        "video",
-        help="Video file to process"
-    )
-    extract_auto_parser.add_argument(
-        "-o", "--output",
-        required=True,
-        help="Output directory for organized images"
-    )
-    extract_auto_parser.add_argument(
-        "--classifier",
-        required=True,
-        help="Path to pre-trained species classifier model"
-    )
-    extract_auto_parser.add_argument(
-        "--model",
-        default="yolov8n.pt",
-        help="YOLO model path (default: yolov8n.pt)"
-    )
-    extract_auto_parser.add_argument(
-        "--threshold",
-        type=float,
-        default=0.3,
-        help="Detection confidence threshold (default: 0.3)"
-    )
-    extract_auto_parser.add_argument(
-        "--confidence",
-        type=float,
-        default=0.5,
-        help="Minimum classifier confidence for auto-sorting (default: 0.5)"
-    )
-    extract_auto_parser.set_defaults(func=extract_auto_command)
     
     # ========== ORGANIZE COMMAND ==========
     organize_parser = subparsers.add_parser(

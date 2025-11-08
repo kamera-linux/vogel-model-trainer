@@ -7,16 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2025-11-08
+
+### Fixed
+- **CLI Parameters**: Corrected extract command parameters to match original `extract_birds.py` script
+  - Changed `--output/-o` to `--folder` for consistency
+  - Renamed `--model` to `--detection-model` for clarity
+  - Updated default `--threshold` from 0.3 to 0.5 for higher quality
+  - Updated default `--sample-rate` from 10 to 3 for better detection
+
 ### Added
-- PyPI publishing infrastructure
-  - MANIFEST.in for package distribution
-  - Build and upload scripts
-  - GitHub Actions workflow for automated publishing
-  - Comprehensive PUBLISHING.md documentation
-- Community health files
-  - CONTRIBUTING.md with contribution guidelines
-  - SECURITY.md with security policy and best practices
-  - Enhanced issue templates (bug report, feature request, question)
+- `--bird` parameter for manual species naming (creates subdirectory)
+- `--species-model` parameter for auto-sorting with trained classifier
+- `--no-resize` flag to keep original image size
+- `--recursive/-r` flag for recursive directory search
+
+### Changed
+- Simplified CLI interface: removed separate `extract-manual` and `extract-auto` commands
+- All extraction modes now unified under single `extract` command with flags
+- Updated documentation (README.md, README.de.md) with correct parameter examples
+
+### Breaking Changes
+- ⚠️ CLI parameter names changed - v0.1.0 commands will not work with v0.1.1
+- Migration required for existing scripts using the CLI
 
 ## [0.1.0] - 2025-11-08
 
@@ -51,5 +64,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Usage examples and workflows
   - Installation instructions
 
-[Unreleased]: https://github.com/kamera-linux/vogel-model-trainer/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/kamera-linux/vogel-model-trainer/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/kamera-linux/vogel-model-trainer/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/kamera-linux/vogel-model-trainer/releases/tag/v0.1.0

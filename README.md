@@ -49,16 +49,16 @@ pip install -e .
 
 ```bash
 # 1. Extract bird images from videos
-vogel-trainer extract video.mp4 --bird great-tit --output ~/training-data/
+vogel-trainer extract video.mp4 --folder ~/training-data/ --bird kohlmeise
 
 # 2. Organize into train/validation split
-vogel-trainer organize --source ~/training-data/ --output ~/training-data/organized/
+vogel-trainer organize ~/training-data/ -o ~/organized-data/
 
 # 3. Train custom classifier
-vogel-trainer train --data ~/training-data/organized/ --output ~/models/
+vogel-trainer train ~/organized-data/ -o ~/models/my-classifier/
 
 # 4. Test the trained model
-vogel-trainer test ~/models/final/ test_image.jpg
+vogel-trainer test ~/models/my-classifier/ -d ~/organized-data/
 ```
 
 ---
@@ -72,9 +72,9 @@ vogel-trainer test ~/models/final/ test_image.jpg
 When you know the species in your video:
 
 ```bash
-vogel-trainer extract ~/Videos/great-tit-*.mp4 \
+vogel-trainer extract ~/Videos/great-tit.mp4 \
+  --folder ~/training-data/ \
   --bird great-tit \
-  --output ~/training-data/ \
   --threshold 0.5 \
   --sample-rate 3
 ```
@@ -84,39 +84,39 @@ vogel-trainer extract ~/Videos/great-tit-*.mp4 \
 Use an existing model to automatically classify and sort:
 
 ```bash
-vogel-trainer extract ~/Videos/mixed-*.mp4 \
+vogel-trainer extract ~/Videos/mixed.mp4 \
+  --folder ~/training-data/ \
   --species-model ~/models/classifier/final/ \
-  --output ~/training-data/ \
-  --threshold 0.6
+  --threshold 0.5
 ```
 
 #### Batch Processing with Wildcards
 
 ```bash
 # Process all videos in a directory
-vogel-trainer extract "~/Videos/*.mp4" --bird blue-tit --output ~/data/
+vogel-trainer extract "~/Videos/*.mp4" --folder ~/data/ --bird blue-tit
 
 # Recursive directory search
 vogel-trainer extract ~/Videos/ \
-  --species-model ~/models/classifier/final/ \
-  --output ~/data/ \
+  --folder ~/data/ \
+  --bird amsel \
   --recursive
 ```
 
 **Parameters:**
+- `--folder`: Base directory for extracted images (required)
+- `--bird`: Manual species label (creates subdirectory)
+- `--species-model`: Path to trained model for auto-classification
 - `--threshold`: YOLO confidence threshold (default: 0.5)
 - `--sample-rate`: Process every Nth frame (default: 3)
-- `--bird`: Manual species label
-- `--species-model`: Path to trained model for auto-classification
+- `--detection-model`: YOLO model path (default: yolov8n.pt)
 - `--no-resize`: Keep original image size (default: resize to 224x224)
+- `--recursive, -r`: Search directories recursively
 
 ### 2. Organize Dataset
 
 ```bash
-vogel-trainer organize \
-  --source ~/training-data/ \
-  --output ~/training-data/organized/ \
-  --train-ratio 0.8
+vogel-trainer organize ~/training-data/ -o ~/organized-data/
 ```
 
 Creates an 80/20 train/validation split:
@@ -135,11 +135,7 @@ organized/
 ### 3. Train Classifier
 
 ```bash
-vogel-trainer train \
-  --data ~/training-data/organized/ \
-  --output ~/models/ \
-  --epochs 50 \
-  --batch-size 16
+vogel-trainer train ~/organized-data/ -o ~/models/my-classifier/
 ```
 
 **Training Configuration:**
@@ -151,7 +147,7 @@ vogel-trainer train \
 
 **Output:**
 ```
-~/models/bird-classifier-20251108_143000/
+~/models/my-classifier/
 ├── checkpoints/     # Intermediate checkpoints
 ├── logs/           # TensorBoard logs
 └── final/          # Final trained model
@@ -163,11 +159,11 @@ vogel-trainer train \
 ### 4. Test Model
 
 ```bash
-# Test on single image
-vogel-trainer test ~/models/final/ image.jpg
+# Test on validation dataset
+vogel-trainer test ~/models/my-classifier/ -d ~/organized-data/
 
 # Output:
-# 🖼️  Testing: image.jpg
+# 🧪 Testing model on validation set...
 #    🐦 Predicted: great-tit (98.5% confidence)
 ```
 

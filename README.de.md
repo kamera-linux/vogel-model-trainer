@@ -49,16 +49,16 @@ pip install -e .
 
 ```bash
 # 1. Vogelbilder aus Videos extrahieren
-vogel-trainer extract video.mp4 --bird kohlmeise --output ~/training-data/
+vogel-trainer extract video.mp4 --folder ~/training-data/ --bird kohlmeise
 
 # 2. In Train/Validation Split organisieren
-vogel-trainer organize --source ~/training-data/ --output ~/training-data/organized/
+vogel-trainer organize ~/training-data/ -o ~/organized-data/
 
 # 3. Eigenen Klassifizierer trainieren
-vogel-trainer train --data ~/training-data/organized/ --output ~/models/
+vogel-trainer train ~/organized-data/ -o ~/models/mein-classifier/
 
 # 4. Das trainierte Modell testen
-vogel-trainer test ~/models/final/ test_image.jpg
+vogel-trainer test ~/models/mein-classifier/ -d ~/organized-data/
 ```
 
 ---
@@ -72,9 +72,9 @@ vogel-trainer test ~/models/final/ test_image.jpg
 Wenn du die Art in deinem Video kennst:
 
 ```bash
-vogel-trainer extract ~/Videos/kohlmeise-*.mp4 \
+vogel-trainer extract ~/Videos/kohlmeise.mp4 \
+  --folder ~/training-data/ \
   --bird kohlmeise \
-  --output ~/training-data/ \
   --threshold 0.5 \
   --sample-rate 3
 ```
@@ -84,39 +84,39 @@ vogel-trainer extract ~/Videos/kohlmeise-*.mp4 \
 Nutze ein bestehendes Modell zum automatischen Klassifizieren und Sortieren:
 
 ```bash
-vogel-trainer extract ~/Videos/gemischt-*.mp4 \
+vogel-trainer extract ~/Videos/gemischt.mp4 \
+  --folder ~/training-data/ \
   --species-model ~/models/classifier/final/ \
-  --output ~/training-data/ \
-  --threshold 0.6
+  --threshold 0.5
 ```
 
 #### Batch-Verarbeitung mit Wildcards
 
 ```bash
 # Alle Videos in einem Verzeichnis verarbeiten
-vogel-trainer extract "~/Videos/*.mp4" --bird blaumeise --output ~/data/
+vogel-trainer extract "~/Videos/*.mp4" --folder ~/data/ --bird blaumeise
 
 # Rekursive Verzeichnis-Suche
 vogel-trainer extract ~/Videos/ \
-  --species-model ~/models/classifier/final/ \
-  --output ~/data/ \
+  --folder ~/data/ \
+  --bird amsel \
   --recursive
 ```
 
 **Parameter:**
+- `--folder`: Basis-Verzeichnis für extrahierte Bilder (erforderlich)
+- `--bird`: Manuelle Arten-Beschriftung (erstellt Unterverzeichnis)
+- `--species-model`: Pfad zu trainiertem Modell für Auto-Klassifizierung
 - `--threshold`: YOLO Confidence-Schwellwert (Standard: 0.5)
 - `--sample-rate`: Verarbeite jeden N-ten Frame (Standard: 3)
-- `--bird`: Manuelle Arten-Beschriftung
-- `--species-model`: Pfad zu trainiertem Modell für Auto-Klassifizierung
+- `--detection-model`: YOLO Modell-Pfad (Standard: yolov8n.pt)
 - `--no-resize`: Originalgröße beibehalten (Standard: Resize auf 224x224)
+- `--recursive, -r`: Verzeichnisse rekursiv durchsuchen
 
 ### 2. Dataset organisieren
 
 ```bash
-vogel-trainer organize \
-  --source ~/training-data/ \
-  --output ~/training-data/organized/ \
-  --train-ratio 0.8
+vogel-trainer organize ~/training-data/ -o ~/organized-data/
 ```
 
 Erstellt einen 80/20 Train/Validation Split:
