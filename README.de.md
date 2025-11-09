@@ -1,6 +1,6 @@
 # 🐦 Vogel Model Trainer
 
-**Sprachen:** [🇬🇧 English](README.md) | [🇩🇪 Deutsch](README.de.md)
+**Sprachen:** [🇬🇧 English](README.md) | [🇩🇪 Deutsch](README.de.md) | [🇯🇵 日本語](README.ja.md)
 
 <p align="left">
   <a href="https://pypi.org/project/vogel-model-trainer/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/vogel-model-trainer.svg"></a>
