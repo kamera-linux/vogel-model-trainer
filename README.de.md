@@ -238,68 +238,33 @@ vogel-trainer test ~/models/final/ image.jpg
 
 Verbessere deine Modell-Genauigkeit durch iterative Verfeinerung mit Auto-Klassifizierung:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Phase 1: Initiales Modell (Manuelle Beschriftung)             │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-    ┌──────────────────────────────────────────────┐
-    │  1. Extraktion mit manuellen Labels          │
-    │     vogel-trainer extract video.mp4          │
-    │       --folder data/ --bird kohlmeise        │
-    └──────────────────────────────────────────────┘
-                              │
-                              ▼
-    ┌──────────────────────────────────────────────┐
-    │  2. Dataset organisieren (80/20 Split)       │
-    │     vogel-trainer organize data/             │
-    │       -o organized/                          │
-    └──────────────────────────────────────────────┘
-                              │
-                              ▼
-    ┌──────────────────────────────────────────────┐
-    │  3. Initiales Modell trainieren              │
-    │     vogel-trainer train organized/           │
-    │       -o models/v1/                          │
-    │     Ergebnis: 92% Genauigkeit ✓              │
-    └──────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Phase 2: Modell-Verbesserung (Auto-Klassifizierung)           │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-    ┌──────────────────────────────────────────────┐
-    │  4. Auto-Extraktion mit trainiertem Modell   │
-    │     vogel-trainer extract neue-videos/       │
-    │       --folder data-v2/                      │
-    │       --species-model models/v1/final/       │
-    │       --species-threshold 0.85               │
-    │     → Automatisch nach Arten sortiert! 🎯    │
-    └──────────────────────────────────────────────┘
-                              │
-                              ▼
-    ┌──────────────────────────────────────────────┐
-    │  5. Manuelle Überprüfung & Korrekturen      │
-    │     • Auto-Klassifizierungen prüfen          │
-    │     • Falsch klassifizierte Bilder verschieb.│
-    │     • Mit vorherigem Dataset zusammenführen  │
-    └──────────────────────────────────────────────┘
-                              │
-                              ▼
-    ┌──────────────────────────────────────────────┐
-    │  6. Neutraining mit erweitertem Dataset      │
-    │     vogel-trainer organize data-v2/          │
-    │       -o organized-v2/                       │
-    │     vogel-trainer train organized-v2/        │
-    │       -o models/v2/                          │
-    │     Ergebnis: 96% Genauigkeit! 🎉            │
-    └──────────────────────────────────────────────┘
-                              │
-                              ▼
-              ♻️  Wiederhole für weitere Verbesserungen
+```mermaid
+flowchart TD
+    Start([📋 Phase 1: Initiales Modell<br/>Manuelle Beschriftung]) --> Extract1[1️⃣ Extraktion mit manuellen Labels<br/><code>vogel-trainer extract video.mp4<br/>--folder data/ --bird kohlmeise</code>]
+    
+    Extract1 --> Organize1[2️⃣ Dataset organisieren 80/20 Split<br/><code>vogel-trainer organize data/<br/>-o organized/</code>]
+    
+    Organize1 --> Train1[3️⃣ Initiales Modell trainieren<br/><code>vogel-trainer train organized/<br/>-o models/v1/</code><br/>✅ <b>Ergebnis: 92% Genauigkeit</b>]
+    
+    Train1 --> Phase2([🔄 Phase 2: Modell-Verbesserung<br/>Auto-Klassifizierung])
+    
+    Phase2 --> Extract2[4️⃣ Auto-Extraktion mit trainiertem Modell<br/><code>vogel-trainer extract neue-videos/<br/>--folder data-v2/<br/>--species-model models/v1/final/<br/>--species-threshold 0.85</code><br/>🎯 <b>Automatisch nach Arten sortiert!</b>]
+    
+    Extract2 --> Review[5️⃣ Manuelle Überprüfung & Korrekturen<br/>• Auto-Klassifizierungen prüfen<br/>• Falsch klassifizierte Bilder verschieben<br/>• Mit vorherigem Dataset zusammenführen]
+    
+    Review --> Train2[6️⃣ Neutraining mit erweitertem Dataset<br/><code>vogel-trainer organize data-v2/<br/>-o organized-v2/<br/>vogel-trainer train organized-v2/<br/>-o models/v2/</code><br/>🎉 <b>Ergebnis: 96% Genauigkeit!</b>]
+    
+    Train2 --> Repeat{♻️ Weiter<br/>verbessern?}
+    Repeat -->|Ja| Extract2
+    Repeat -->|Nein| End([✅ Finales Modell])
+    
+    style Start fill:#e1f5ff,stroke:#0066cc,stroke-width:3px
+    style Phase2 fill:#e1f5ff,stroke:#0066cc,stroke-width:3px
+    style Train1 fill:#d4edda,stroke:#28a745,stroke-width:2px
+    style Train2 fill:#d4edda,stroke:#28a745,stroke-width:2px
+    style End fill:#d4edda,stroke:#28a745,stroke-width:3px
+    style Extract2 fill:#fff3cd,stroke:#ffc107,stroke-width:2px
+    style Review fill:#f8d7da,stroke:#dc3545,stroke-width:2px
 ```
 
 **Hauptvorteile:**
