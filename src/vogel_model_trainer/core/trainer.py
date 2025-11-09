@@ -100,7 +100,8 @@ def transform_function(examples, processor, is_training=True):
     Uses processor for normalization to match inference behavior.
     Only applies data augmentation for training.
     """
-    images = []
+    # Process each image and collect pixel values
+    pixel_values = []
     
     for img in examples["image"]:
         # Convert to RGB
@@ -114,9 +115,11 @@ def transform_function(examples, processor, is_training=True):
         # Use processor for final preprocessing (resize, normalize)
         # This ensures train/val/test preprocessing is consistent!
         processed = processor(img, return_tensors="pt")
-        images.append(processed["pixel_values"][0])
+        # Extract the tensor and convert to numpy for HF datasets
+        pixel_values.append(processed["pixel_values"][0].numpy())
     
-    examples["pixel_values"] = images
+    # Return as numpy arrays (HF datasets will handle conversion)
+    examples["pixel_values"] = pixel_values
     return examples
 
 def create_compute_metrics(species):
@@ -145,7 +148,11 @@ def create_compute_metrics(species):
     return compute_metrics
 
 def collate_fn(examples):
-    """Custom collate function for DataLoader."""
+    """Custom collate function for DataLoader.
+    
+    Since we use set_format(type="torch"), the dataset already returns tensors.
+    We just need to stack them into batches.
+    """
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
     labels = torch.tensor([example["label"] for example in examples])
     return {"pixel_values": pixel_values, "labels": labels}
@@ -240,12 +247,18 @@ def train_model(data_dir, output_dir, model_name="google/efficientnet-b0",
     print("\nAppliziere Transformationen...")
     dataset["train"] = dataset["train"].map(
         lambda x: transform_function(x, processor, is_training=True),
-        batched=True
+        batched=True,
+        remove_columns=["image"]
     )
     dataset["validation"] = dataset["validation"].map(
         lambda x: transform_function(x, processor, is_training=False),
-        batched=True
+        batched=True,
+        remove_columns=["image"]
     )
+    
+    # Set format for PyTorch
+    dataset["train"].set_format(type="torch", columns=["pixel_values", "label"])
+    dataset["validation"].set_format(type="torch", columns=["pixel_values", "label"])
     
     # Training arguments
     training_args = TrainingArguments(
