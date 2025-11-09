@@ -262,10 +262,9 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
         print(_('next_step_train'))
     else:
         print(_('next_step_review', path=output_path))
-        print("   2. Create subdirectories for each species (e.g., kohlmeise/, blaumeise/, etc.)")
-        print("   3. Move images into correct species folders")
+        print(_('next_step_manual_sort'))
         print(_('next_step_organize'))
-    print("   4. Use this dataset to train a custom model!")
+        print(_('next_step_train'))
 
 
 def main():
