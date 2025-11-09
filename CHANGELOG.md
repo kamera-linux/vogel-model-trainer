@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2025-11-09
+
+### Added
+- **Japanese Documentation**: Complete Japanese translation of README (README.ja.md)
+- **Library Functions**: Core modules now provide dedicated library functions
+  - `extractor.extract_birds_from_video()` - Library-ready extraction function
+  - `organizer.organize_dataset()` - Dataset organization function
+  - `trainer.train_model()` - Model training function with configurable parameters
+  - `tester.test_model()` - Unified testing function for validation sets and single images
+
+### Changed
+- **Core Module Architecture**: Converted from script-only to library+script hybrid pattern
+  - All core modules now have dedicated functions for programmatic use
+  - `main()` functions kept as wrappers for direct script execution
+  - CLI commands updated to call library functions
+- **Documentation**: Updated language selection in all READMEs to include Japanese
+- **tester.py**: Unified `test_model()` function now handles both validation set testing and single image prediction
+
+### Fixed
+- **CLI Integration**: Improved parameter mapping between CLI commands and core functions
+- **Function Signatures**: Ensured all CLI calls match function parameter names exactly
+
+### Technical Details
+- `organizer.py`: Added `organize_dataset(source_dir, output_dir, train_ratio=0.8)` function
+- `trainer.py`: Extracted training logic into `train_model(data_dir, output_dir, model_name, batch_size, num_epochs, learning_rate)` function
+- `tester.py`: Refactored to support both operational modes through single function interface
+- All modules maintain backward compatibility for direct script execution
+
 ## [0.1.1] - 2025-11-08
 
 ### Fixed

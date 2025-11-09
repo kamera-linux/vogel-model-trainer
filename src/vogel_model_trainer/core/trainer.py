@@ -167,10 +167,30 @@ def signal_handler(sig, frame):
         print("\n⚠️  Sofortiges Beenden erzwungen!")
         sys.exit(1)
 
-def main():
-    """Main training function."""
+def train_model(data_dir, output_dir, model_name="google/efficientnet-b0", 
+                batch_size=16, num_epochs=50, learning_rate=3e-4):
+    """
+    Train a custom bird species classifier.
+    
+    Args:
+        data_dir: Directory with train/val folders containing species subdirectories
+        output_dir: Directory to save the trained model
+        model_name: Hugging Face model name (default: google/efficientnet-b0)
+        batch_size: Training batch size (default: 16)
+        num_epochs: Number of training epochs (default: 50)
+        learning_rate: Initial learning rate (default: 3e-4)
+    
+    Returns:
+        str: Path to the final trained model
+    """
+    from pathlib import Path
+    from datetime import datetime
+    
     # Register signal handler
     signal.signal(signal.SIGINT, signal_handler)
+    
+    data_dir = Path(data_dir).expanduser()
+    output_dir = Path(output_dir).expanduser()
     
     print("="*60)
     print("Vogel-Artenerkennung Training")
@@ -180,20 +200,20 @@ def main():
     
     # Detect species from directory structure
     print("\nErkenne Vogelarten aus Verzeichnisstruktur...")
-    species = get_species_from_directory(DATA_DIR)
+    species = get_species_from_directory(data_dir)
     
-    # Create output directory
+    # Create output directory with timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = OUTPUT_DIR / f"bird-classifier-{timestamp}"
-    output_dir.mkdir(parents=True, exist_ok=True)
+    model_output_dir = output_dir / f"bird-classifier-{timestamp}"
+    model_output_dir.mkdir(parents=True, exist_ok=True)
     
-    print(f"\nOutput Ordner: {output_dir}")
+    print(f"\nOutput Ordner: {model_output_dir}")
     print(f"Vogelarten: {', '.join(species)}")
     print(f"Anzahl Klassen: {len(species)}")
     
     # Load dataset
     print("\nLade Dataset...")
-    dataset = load_dataset("imagefolder", data_dir=str(DATA_DIR))
+    dataset = load_dataset("imagefolder", data_dir=str(data_dir))
     
     print(f"  Training:   {len(dataset['train'])} Bilder")
     print(f"  Validation: {len(dataset['validation'])} Bilder")
@@ -220,124 +240,98 @@ def main():
     print("\nAppliziere Transformationen...")
     dataset["train"] = dataset["train"].map(
         lambda x: transform_function(x, processor, is_training=True),
-        batched=True,
-        remove_columns=["image"]
+        batched=True
     )
     dataset["validation"] = dataset["validation"].map(
         lambda x: transform_function(x, processor, is_training=False),
-        batched=True,
-        remove_columns=["image"]
+        batched=True
     )
     
-    # Set format
-    dataset["train"].set_format(type="torch", columns=["pixel_values", "label"])
-    dataset["validation"].set_format(type="torch", columns=["pixel_values", "label"])
-    
-    # Training arguments with optimized hyperparameters
+    # Training arguments
     training_args = TrainingArguments(
-        output_dir=str(output_dir),
-        num_train_epochs=NUM_EPOCHS,
-        per_device_train_batch_size=BATCH_SIZE,
-        per_device_eval_batch_size=BATCH_SIZE,
-        learning_rate=LEARNING_RATE,
+        output_dir=str(model_output_dir / "checkpoints"),
+        num_train_epochs=num_epochs,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=batch_size,
         warmup_ratio=0.1,
-        lr_scheduler_type="cosine",  # Cosine annealing for better convergence
-        weight_decay=0.01,  # L2 regularization to prevent overfitting
-        logging_dir=str(output_dir / "logs"),
+        learning_rate=learning_rate,
+        weight_decay=0.01,
+        logging_dir=str(model_output_dir / "logs"),
         logging_steps=10,
-        logging_strategy="epoch",  # Nur Epochen-Logs anzeigen
         eval_strategy="epoch",
         save_strategy="epoch",
-        save_total_limit=3,
         load_best_model_at_end=True,
         metric_for_best_model="accuracy",
         greater_is_better=True,
+        save_total_limit=3,
         push_to_hub=False,
         remove_unused_columns=False,
-        dataloader_num_workers=4,
-        label_smoothing_factor=0.1,  # Label smoothing for better generalization
-        report_to="none",  # Keine Berichte an externe Tools
-        disable_tqdm=False,  # Progress bar behalten
+        label_smoothing_factor=0.1,
+        lr_scheduler_type="cosine",
     )
     
-    # Create compute_metrics function with species
-    compute_metrics = create_compute_metrics(species)
-    
-    # Create trainer
+    # Trainer
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=dataset["train"],
         eval_dataset=dataset["validation"],
-        compute_metrics=compute_metrics,
+        tokenizer=processor,
+        compute_metrics=create_compute_metrics(species),
         data_collator=collate_fn,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=7)]  # Etwas mehr Geduld für bessere Konvergenz
     )
     
     # Train
-    print("\n" + "="*60)
-    print("Starte Training...")
-    print("="*60)
+    print("\nStarte Training...")
+    print(f"Batch Size: {batch_size}")
+    print(f"Learning Rate: {learning_rate}")
+    print(f"Epochs: {num_epochs}")
     
-    try:
-        train_result = trainer.train()
-    except KeyboardInterrupt:
-        if interrupted:
-            print("\n" + "="*60)
-            print("Training wurde durch Benutzer unterbrochen")
-            print("Speichere aktuellen Modellstand...")
-            print("="*60)
-            
-            # Save interrupted model
-            interrupted_dir = output_dir / "interrupted"
-            trainer.save_model(str(interrupted_dir))
-            processor.save_pretrained(str(interrupted_dir))
-            print(f"\n✓ Modell gespeichert in: {interrupted_dir}")
-            print("\nTraining kann später fortgesetzt werden mit:")
-            print(f"  --resume_from_checkpoint {interrupted_dir}")
-            return
-        raise
+    trainer.train()
     
     # Save final model
-    print("\nSpeichere finales Modell...")
-    trainer.save_model(str(output_dir / "final"))
-    processor.save_pretrained(str(output_dir / "final"))
+    final_model_path = model_output_dir / "final"
+    print(f"\nSpeichere finales Modell: {final_model_path}")
+    trainer.save_model(str(final_model_path))
+    processor.save_pretrained(str(final_model_path))
     
-    # Save training stats
-    with open(output_dir / "training_stats.json", "w") as f:
-        json.dump({
-            "train_runtime": train_result.metrics["train_runtime"],
-            "train_samples_per_second": train_result.metrics["train_samples_per_second"],
-            "train_loss": train_result.metrics["train_loss"],
-            "species": species,
-            "num_train_samples": len(dataset["train"]),
-            "num_val_samples": len(dataset["validation"]),
-        }, f, indent=2)
+    # Save config
+    import json
+    config = {
+        "model_name": model_name,
+        "species": species,
+        "num_classes": len(species),
+        "timestamp": timestamp,
+        "batch_size": batch_size,
+        "num_epochs": num_epochs,
+        "learning_rate": learning_rate
+    }
+    with open(final_model_path / "training_config.json", "w") as f:
+        json.dump(config, f, indent=2)
     
-    # Final evaluation
-    print("\n" + "="*60)
-    print("Finale Evaluation")
-    print("="*60)
+    print("\n✅ Training abgeschlossen!")
+    print(f"📁 Modell gespeichert in: {final_model_path}")
     
-    eval_results = trainer.evaluate()
-    
-    print(f"\nValidation Accuracy: {eval_results['eval_accuracy']:.4f}")
-    print("\nPro-Vogelart Accuracy:")
-    for sp in species:
-        key = f"eval_acc_{sp}"
-        if key in eval_results:
-            print(f"  {sp:12s}: {eval_results[key]:.4f}")
-    
-    # Save evaluation results
-    with open(output_dir / "eval_results.json", "w") as f:
-        json.dump(eval_results, f, indent=2)
-    
-    print("\n" + "="*60)
-    print("Training abgeschlossen!")
-    print("="*60)
-    print(f"\nModell gespeichert in: {output_dir / 'final'}")
-    print(f"\nUm das Modell zu nutzen:")
-    print(f"  vogel-video-analyzer --species-model {output_dir / 'final'} <video>")
+    return str(final_model_path)
+
+
+def main():
+    """Main training function (for direct script execution)."""
+    try:
+        train_model(
+            data_dir=DATA_DIR,
+            output_dir=OUTPUT_DIR,
+            model_name="google/efficientnet-b0",
+            batch_size=BATCH_SIZE,
+            num_epochs=NUM_EPOCHS,
+            learning_rate=LEARNING_RATE
+        )
+    except Exception as e:
+        print(f"\n❌ Fehler beim Training: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+    return 0
 
 if __name__ == "__main__":
-    main()
+    exit(main())

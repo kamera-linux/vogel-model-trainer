@@ -128,6 +128,44 @@ def print_summary(stats, output_dir):
     print(f"  Training:   {output_dir}/train/")
     print(f"  Validation: {output_dir}/val/")
 
+def organize_dataset(source_dir, output_dir, train_ratio=TRAIN_RATIO):
+    """
+    Organize bird images into train/val split.
+    
+    Args:
+        source_dir: Source directory with species folders (str or Path)
+        output_dir: Output directory for organized dataset (str or Path)
+        train_ratio: Train/val split ratio (default: 0.8)
+    
+    Returns:
+        dict: Statistics about the organized dataset
+    """
+    from pathlib import Path
+    
+    source_dir = Path(source_dir).expanduser()
+    output_dir = Path(output_dir).expanduser()
+    
+    if not source_dir.exists():
+        raise FileNotFoundError(f"Source directory not found: {source_dir}")
+    
+    print(f"📂 Source: {source_dir}")
+    print(f"📂 Output: {output_dir}")
+    print(f"📊 Train/Val Split: {train_ratio*100:.0f}% / {(1-train_ratio)*100:.0f}%")
+    print()
+    
+    print("🔍 Sammle Bilder nach Vogelart...")
+    images_by_species = collect_images_by_species(source_dir)
+    
+    if not images_by_species:
+        raise ValueError("Keine Bilder gefunden!")
+    
+    print("📋 Splitte und kopiere Bilder...")
+    stats = split_and_copy(images_by_species, output_dir, train_ratio)
+    
+    print_summary(stats, output_dir)
+    return stats
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Organize bird images into train/val split',
@@ -154,30 +192,16 @@ Examples:
     
     args = parser.parse_args()
     
-    source_dir = args.source.expanduser()
-    output_dir = args.output.expanduser() if args.output else source_dir / "organized"
-    
-    if not source_dir.exists():
-        print(f"❌ Source directory not found: {source_dir}")
+    try:
+        organize_dataset(
+            source_dir=args.source,
+            output_dir=args.output or args.source / "organized",
+            train_ratio=args.train_ratio
+        )
+        return 0
+    except Exception as e:
+        print(f"❌ Error: {e}")
         return 1
-    
-    print(f"📂 Source: {source_dir}")
-    print(f"📂 Output: {output_dir}")
-    print(f"📊 Train/Val Split: {args.train_ratio*100:.0f}% / {(1-args.train_ratio)*100:.0f}%")
-    print()
-    
-    print("🔍 Sammle Bilder nach Vogelart...")
-    images_by_species = collect_images_by_species(source_dir)
-    
-    if not images_by_species:
-        print("❌ Keine Bilder gefunden!")
-        return 1
-    
-    print("📋 Splitte und kopiere Bilder...")
-    stats = split_and_copy(images_by_species, output_dir, args.train_ratio)
-    
-    print_summary(stats, output_dir)
-    return 0
 
 if __name__ == "__main__":
     exit(main())

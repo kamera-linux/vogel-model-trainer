@@ -18,7 +18,7 @@ def extract_command(args):
     """Execute the extract command."""
     from vogel_model_trainer.core import extractor
     
-    print(f"� Extracting birds from: {args.video}")
+    print(f"🎥 Extracting birds from: {args.video}")
     print(f"📁 Output folder: {args.folder}")
     
     if args.bird:
@@ -26,18 +26,37 @@ def extract_command(args):
     if args.species_model:
         print(f"🤖 Using species classifier: {args.species_model}")
     
-    # Call the extraction function with all parameters
-    extractor.extract_birds_from_video(
-        video_pattern=args.video,
-        base_folder=args.folder,
-        bird_name=args.bird,
-        species_model_path=args.species_model,
-        resize=(not args.no_resize),
-        detection_model_path=args.detection_model,
-        confidence_threshold=args.threshold,
-        sample_rate=args.sample_rate,
-        recursive=args.recursive
-    )
+    # Handle glob patterns and recursive search
+    import glob
+    from pathlib import Path
+    
+    video_files = []
+    if args.recursive:
+        # Recursive search
+        video_path = Path(args.video)
+        if video_path.is_dir():
+            for ext in ['*.mp4', '*.avi', '*.mov', '*.mkv']:
+                video_files.extend(video_path.rglob(ext))
+        else:
+            video_files = [args.video]
+    else:
+        # Glob pattern or single file
+        matches = glob.glob(args.video, recursive=False)
+        video_files = matches if matches else [args.video]
+    
+    # Process each video file
+    for video_file in video_files:
+        print(f"\n📹 Processing: {video_file}")
+        extractor.extract_birds_from_video(
+            video_path=str(video_file),
+            output_dir=args.folder,
+            bird_species=args.bird,
+            detection_model=args.detection_model,
+            species_model=args.species_model,
+            threshold=args.threshold,
+            sample_rate=args.sample_rate,
+            resize_to_target=(not args.no_resize)
+        )
 
 
 def organize_command(args):
@@ -127,7 +146,7 @@ For more information, visit:
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 0.1.1"
+        version="%(prog)s 0.1.2"
     )
     
     subparsers = parser.add_subparsers(

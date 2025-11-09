@@ -65,6 +65,50 @@ vogel-trainer test ~/models/my-classifier/ -d ~/organized-data/
 
 ## 📖 Usage Guide
 
+### Using as a Library (New in v0.1.2)
+
+All core functions can now be used programmatically in your Python code:
+
+```python
+from vogel_model_trainer.core import extractor, organizer, trainer, tester
+
+# Extract birds from video
+extractor.extract_birds_from_video(
+    video_path="video.mp4",
+    output_dir="output/",
+    bird_species="great-tit",
+    detection_model="yolov8n.pt",
+    species_model=None,
+    threshold=0.5,
+    sample_rate=3,
+    resize_to_target=True
+)
+
+# Organize into train/val splits
+organizer.organize_dataset(
+    source_dir="output/",
+    output_dir="dataset/",
+    train_ratio=0.8
+)
+
+# Train model
+trainer.train_model(
+    data_dir="dataset/",
+    output_dir="models/",
+    model_name="google/efficientnet-b0",
+    batch_size=16,
+    num_epochs=50,
+    learning_rate=3e-4
+)
+
+# Test model
+results = tester.test_model(
+    model_path="models/bird_classifier/",
+    data_dir="dataset/"
+)
+print(f"Accuracy: {results['accuracy']:.2%}")
+```
+
 ### 1. Extract Training Images
 
 #### Manual Mode (Recommended for Initial Collection)

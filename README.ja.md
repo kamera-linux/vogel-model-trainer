@@ -65,6 +65,50 @@ vogel-trainer test ~/models/my-classifier/ -d ~/organized-data/
 
 ## 📖 使用ガイド
 
+### ライブラリとして使用（v0.1.2の新機能）
+
+すべてのコア機能をPythonコードでプログラム的に使用できるようになりました:
+
+```python
+from vogel_model_trainer.core import extractor, organizer, trainer, tester
+
+# 動画から鳥を抽出
+extractor.extract_birds_from_video(
+    video_path="video.mp4",
+    output_dir="output/",
+    bird_species="great-tit",
+    detection_model="yolov8n.pt",
+    species_model=None,
+    threshold=0.5,
+    sample_rate=3,
+    resize_to_target=True
+)
+
+# トレーニング/検証分割に整理
+organizer.organize_dataset(
+    source_dir="output/",
+    output_dir="dataset/",
+    train_ratio=0.8
+)
+
+# モデルをトレーニング
+trainer.train_model(
+    data_dir="dataset/",
+    output_dir="models/",
+    model_name="google/efficientnet-b0",
+    batch_size=16,
+    num_epochs=50,
+    learning_rate=3e-4
+)
+
+# モデルをテスト
+results = tester.test_model(
+    model_path="models/bird_classifier/",
+    data_dir="dataset/"
+)
+print(f"精度: {results['accuracy']:.2%}")
+```
+
 ### 1. トレーニング画像の抽出
 
 #### 手動モード（初期収集に推奨）
