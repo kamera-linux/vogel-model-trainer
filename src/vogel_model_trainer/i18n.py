@@ -106,6 +106,13 @@ TRANSLATIONS = {
         'species_accuracy': '\n📈 Per-Species Accuracy:',
         'species_acc_item': '   • {species}: {acc:.1%} ({correct}/{total})',
         
+        # CLI
+        'cli_extracting_from': '🎥 Extracting birds from: {path}',
+        'cli_output_folder': '📁 Output folder: {path}',
+        'cli_species': '🐦 Species: {species}',
+        'cli_using_classifier': '🤖 Using species classifier: {path}',
+        'cli_processing_video': '\n📹 Processing: {path}',
+        
         # General
         'error': 'Error',
         'warning': 'Warning',
@@ -209,6 +216,13 @@ TRANSLATIONS = {
         'species_accuracy': '\n📈 Genauigkeit pro Art:',
         'species_acc_item': '   • {species}: {acc:.1%} ({correct}/{total})',
         
+        # CLI
+        'cli_extracting_from': '🎥 Extrahiere Vögel aus: {path}',
+        'cli_output_folder': '📁 Ausgabe-Ordner: {path}',
+        'cli_species': '🐦 Art: {species}',
+        'cli_using_classifier': '🤖 Nutze Arten-Klassifizierer: {path}',
+        'cli_processing_video': '\n📹 Verarbeite: {path}',
+        
         # General
         'error': 'Fehler',
         'warning': 'Warnung',
@@ -311,6 +325,13 @@ TRANSLATIONS = {
         'correct_predictions': '   ✅ 正解：{correct}/{total}',
         'species_accuracy': '\n📈 種ごとの精度：',
         'species_acc_item': '   • {species}：{acc:.1%}（{correct}/{total}）',
+        
+        # CLI
+        'cli_extracting_from': '🎥 鳥を抽出中：{path}',
+        'cli_output_folder': '📁 出力フォルダ：{path}',
+        'cli_species': '🐦 種：{species}',
+        'cli_using_classifier': '🤖 種分類器を使用：{path}',
+        'cli_processing_video': '\n📹 処理中：{path}',
         
         # General
         'error': 'エラー',

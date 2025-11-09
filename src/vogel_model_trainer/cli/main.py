@@ -17,14 +17,15 @@ from pathlib import Path
 def extract_command(args):
     """Execute the extract command."""
     from vogel_model_trainer.core import extractor
+    from vogel_model_trainer.i18n import _
     
-    print(f"🎥 Extracting birds from: {args.video}")
-    print(f"📁 Output folder: {args.folder}")
+    print(_('cli_extracting_from', path=args.video))
+    print(_('cli_output_folder', path=args.folder))
     
     if args.bird:
-        print(f"🐦 Species: {args.bird}")
+        print(_('cli_species', species=args.bird))
     if args.species_model:
-        print(f"🤖 Using species classifier: {args.species_model}")
+        print(_('cli_using_classifier', path=args.species_model))
     
     # Handle glob patterns and recursive search
     import glob
@@ -46,7 +47,7 @@ def extract_command(args):
     
     # Process each video file
     for video_file in video_files:
-        print(f"\n📹 Processing: {video_file}")
+        print(_('cli_processing_video', path=video_file))
         extractor.extract_birds_from_video(
             video_path=str(video_file),
             output_dir=args.folder,
