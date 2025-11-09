@@ -320,8 +320,7 @@ vogel-trainer train ~/data/organized/ -o ~/models/multi-species/
 
 - 🐛 **バグレポート**: [Issues](https://github.com/kamera-linux/vogel-model-trainer/issues)
 - 💬 **ディスカッション**: [Discussions](https://github.com/kamera-linux/vogel-model-trainer/discussions)
-- 📧 **Email**: kamerawagen.linux@gmail.com
-- 📚 **ドキュメント**: [README.md](README.md)
+-  **ドキュメント**: [README.md](README.md)
 
 ---
 
