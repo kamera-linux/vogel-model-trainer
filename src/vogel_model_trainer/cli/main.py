@@ -64,9 +64,10 @@ def extract_command(args):
 def organize_command(args):
     """Execute the organize command."""
     from vogel_model_trainer.core import organizer
+    from vogel_model_trainer.i18n import _
     
-    print(f"📊 Organizing dataset: {args.source}")
-    print(f"📁 Output directory: {args.output}")
+    print(_('cli_organizing_dataset', path=args.source))
+    print(_('cli_output_directory', path=args.output))
     
     # Call the organization function
     organizer.organize_dataset(
@@ -79,9 +80,10 @@ def organize_command(args):
 def train_command(args):
     """Execute the train command."""
     from vogel_model_trainer.core import trainer
+    from vogel_model_trainer.i18n import _
     
-    print(f"🎓 Training model on dataset: {args.data}")
-    print(f"📁 Output directory: {args.output}")
+    print(_('cli_training_model', path=args.data))
+    print(_('cli_output_directory', path=args.output))
     
     # Call the training function
     trainer.train_model(

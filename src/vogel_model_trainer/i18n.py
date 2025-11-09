@@ -109,9 +109,12 @@ TRANSLATIONS = {
         # CLI
         'cli_extracting_from': '🎥 Extracting birds from: {path}',
         'cli_output_folder': '📁 Output folder: {path}',
+        'cli_output_directory': '📁 Output directory: {path}',
         'cli_species': '🐦 Species: {species}',
         'cli_using_classifier': '🤖 Using species classifier: {path}',
         'cli_processing_video': '\n📹 Processing: {path}',
+        'cli_organizing_dataset': '📊 Organizing dataset: {path}',
+        'cli_training_model': '🎓 Training model on dataset: {path}',
         
         # General
         'error': 'Error',
@@ -219,9 +222,12 @@ TRANSLATIONS = {
         # CLI
         'cli_extracting_from': '🎥 Extrahiere Vögel aus: {path}',
         'cli_output_folder': '📁 Ausgabe-Ordner: {path}',
+        'cli_output_directory': '📁 Ausgabe-Verzeichnis: {path}',
         'cli_species': '🐦 Art: {species}',
         'cli_using_classifier': '🤖 Nutze Arten-Klassifizierer: {path}',
         'cli_processing_video': '\n📹 Verarbeite: {path}',
+        'cli_organizing_dataset': '📊 Organisiere Dataset: {path}',
+        'cli_training_model': '🎓 Trainiere Modell auf Dataset: {path}',
         
         # General
         'error': 'Fehler',
@@ -329,9 +335,12 @@ TRANSLATIONS = {
         # CLI
         'cli_extracting_from': '🎥 鳥を抽出中：{path}',
         'cli_output_folder': '📁 出力フォルダ：{path}',
+        'cli_output_directory': '📁 出力ディレクトリ：{path}',
         'cli_species': '🐦 種：{species}',
         'cli_using_classifier': '🤖 種分類器を使用：{path}',
         'cli_processing_video': '\n📹 処理中：{path}',
+        'cli_organizing_dataset': '📊 データセット整理中：{path}',
+        'cli_training_model': '🎓 データセットでモデルをトレーニング中：{path}',
         
         # General
         'error': 'エラー',
