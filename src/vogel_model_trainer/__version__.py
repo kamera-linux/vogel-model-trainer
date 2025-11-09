@@ -1,3 +1,3 @@
 """Version information for vogel-model-trainer."""
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"

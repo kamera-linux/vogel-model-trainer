@@ -98,7 +98,9 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     session_id = f"{video_name}_{timestamp}"
     
-    bird_count = 0
+    bird_count = 0  # Successfully exported birds
+    detected_count = 0  # Total detected birds (including skipped)
+    skipped_count = 0  # Birds skipped due to threshold
     species_counts = {}
     frame_num = 0
     
@@ -138,9 +140,11 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                         bird_crop = frame[y1:y2, x1:x2]
                         
                         if bird_crop.size > 0:
+                            # Count all detected birds
+                            detected_count += 1
+                            
                             # Generate unique ID for this bird image
                             unique_id = uuid.uuid4().hex[:8]  # 8-character unique ID
-                            bird_count += 1
                             
                             # Determine species and output directory
                             species_name = None
@@ -165,8 +169,12 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                             
                             # Apply species confidence filter if specified
                             if species_threshold is not None and species_conf < species_threshold:
+                                skipped_count += 1
                                 print(_('bird_skipped', species=species_name, conf=species_conf, threshold=species_threshold, frame=frame_num))
                                 continue
+                            
+                            # Only count birds that passed the threshold filter
+                            bird_count += 1
                             
                             # Create species subdirectory if needed
                             if species_name:
@@ -226,7 +234,12 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
     
     print(_('extraction_complete'))
     print(_('output_directory', path=output_path))
-    print(_('total_birds', count=bird_count))
+    print(_('detected_birds_total', count=detected_count))
+    print(_('exported_birds_total', count=bird_count))
+    
+    # Show skipped count if threshold was applied
+    if species_threshold is not None and skipped_count > 0:
+        print(_('skipped_birds_total', count=skipped_count, threshold=species_threshold))
     
     # Show species breakdown if applicable
     if species_counts:

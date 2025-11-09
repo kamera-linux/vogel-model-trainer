@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2025-11-09
+
+### Added
+- **Detailed Extraction Statistics**: New comprehensive bird counting system
+  - `detected_birds_total`: Shows all birds detected by YOLO
+  - `exported_birds_total`: Shows birds actually saved (after threshold filtering)
+  - `skipped_birds_total`: Shows birds filtered out by `--species-threshold`
+  - Translated labels for all three languages (English, German, Japanese)
+
+### Fixed
+- **Bird Count Bug**: Fixed incorrect counting when using `--species-threshold`
+  - Previously counted all detected birds, even those skipped due to low confidence
+  - Now correctly counts only exported birds
+  - Statistics now accurately reflect what was actually saved vs. what was filtered
+
+### Changed
+- **Extraction Output**: Enhanced summary with three distinct counters for better transparency
+  - Clear visibility of quality control impact
+  - Users can now see how many birds were filtered vs. accepted
+  - Example output:
+    ```
+    🔍 Detected birds total: 4
+    🐦 Exported birds: 0
+    ⏭️  Skipped (< 0.85): 4
+    ```
+
 ## [0.1.3] - 2025-11-09
 
 ### Added
