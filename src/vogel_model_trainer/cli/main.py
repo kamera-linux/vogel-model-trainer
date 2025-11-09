@@ -150,7 +150,7 @@ For more information, visit:
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 0.1.4"
+        version="%(prog)s 0.1.5"
     )
     
     subparsers = parser.add_subparsers(

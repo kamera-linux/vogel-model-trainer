@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2025-11-09
+
+### Fixed
+- **Training Error**: Fixed critical PyTorch tensor conversion bug that prevented training
+  - Error: "expected Tensor as element 0 in argument 0, but got list"
+  - Root cause: Transform function returned list of tensors instead of numpy arrays
+  - Solution: Added `.numpy()` conversion and `set_format(type="torch")` for proper data pipeline
+  - Training now works correctly with HuggingFace datasets
+
+### Added
+- **Complete i18n for Training Module**: Fully translated training output
+  - All training messages now use i18n system (English, German, Japanese)
+  - Includes: model loading, dataset info, progress messages, completion status
+  - Graceful Ctrl+C handling messages translated
+  - 30+ new translation keys for training workflow
+
+- **Complete i18n for Testing Module**: Fully translated testing output  
+  - Test result messages now in user's language
+  - Single image classification and validation set testing
+  - Usage instructions translated
+  - 12+ new translation keys for testing workflow
+
+### Improved
+- **CLI i18n Coverage**: Fixed remaining hardcoded English strings
+  - Extract command: All startup messages translated
+  - Organize command: Fully translated output
+  - Train command: Fully translated CLI interface
+  - Consistent language experience across all commands
+
 ## [0.1.4] - 2025-11-09
 
 ### Added

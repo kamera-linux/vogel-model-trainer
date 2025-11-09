@@ -66,7 +66,8 @@ def get_species_from_directory(data_dir):
 
 def prepare_model_and_processor(species):
     """Load base model and processor."""
-    print(f"Lade Basis-Modell: {MODEL_NAME}")
+    from vogel_model_trainer.i18n import _
+    print(_('train_loading_model', model=MODEL_NAME))
     
     # Create label mappings
     id2label = {i: sp for i, sp in enumerate(species)}
@@ -162,16 +163,17 @@ interrupted = False
 
 def signal_handler(sig, frame):
     """Handle Ctrl+C gracefully."""
+    from vogel_model_trainer.i18n import _
     global interrupted
     if not interrupted:
         interrupted = True
         print("\n\n" + "="*60)
-        print("⚠️  Training wird unterbrochen (Strg+C erkannt)")
-        print("Warte auf sauberes Beenden des aktuellen Schritts...")
+        print(_('train_interrupted'))
+        print(_('train_waiting_clean_exit'))
         print("="*60 + "\n")
-        print("(Drücke Strg+C erneut für sofortiges Beenden)")
+        print(_('train_force_exit_hint'))
     else:
-        print("\n⚠️  Sofortiges Beenden erzwungen!")
+        print(_('train_force_exit'))
         sys.exit(1)
 
 def train_model(data_dir, output_dir, model_name="google/efficientnet-b0", 
@@ -192,6 +194,7 @@ def train_model(data_dir, output_dir, model_name="google/efficientnet-b0",
     """
     from pathlib import Path
     from datetime import datetime
+    from vogel_model_trainer.i18n import _
     
     # Register signal handler
     signal.signal(signal.SIGINT, signal_handler)
@@ -200,13 +203,13 @@ def train_model(data_dir, output_dir, model_name="google/efficientnet-b0",
     output_dir = Path(output_dir).expanduser()
     
     print("="*60)
-    print("Vogel-Artenerkennung Training")
+    print(_('train_header'))
     print("="*60)
-    print("(Drücke Strg+C zum sauberen Beenden)")
+    print(_('train_ctrl_c_hint'))
     print("="*60)
     
     # Detect species from directory structure
-    print("\nErkenne Vogelarten aus Verzeichnisstruktur...")
+    print(_('train_detecting_species'))
     species = get_species_from_directory(data_dir)
     
     # Create output directory with timestamp
@@ -214,37 +217,36 @@ def train_model(data_dir, output_dir, model_name="google/efficientnet-b0",
     model_output_dir = output_dir / f"bird-classifier-{timestamp}"
     model_output_dir.mkdir(parents=True, exist_ok=True)
     
-    print(f"\nOutput Ordner: {model_output_dir}")
-    print(f"Vogelarten: {', '.join(species)}")
-    print(f"Anzahl Klassen: {len(species)}")
+    print(_('train_output_dir', path=model_output_dir))
+    print(_('train_species', species=', '.join(species)))
+    print(_('train_num_classes', count=len(species)))
     
     # Load dataset
-    print("\nLade Dataset...")
+    print(_('train_loading_dataset'))
     dataset = load_dataset("imagefolder", data_dir=str(data_dir))
     
-    print(f"  Training:   {len(dataset['train'])} Bilder")
-    print(f"  Validation: {len(dataset['validation'])} Bilder")
+    print(_('train_dataset_size', train=len(dataset['train'])))
+    print(_('train_val_size', val=len(dataset['validation'])))
     
     # Verify species match dataset labels
     dataset_labels = dataset["train"].features["label"].names
-    print(f"\nDataset Labels: {dataset_labels}")
-    print(f"Detected Species: {species}")
+    print(_('train_dataset_labels', labels=dataset_labels))
+    print(_('train_detected_species', species=species))
     
     if sorted(dataset_labels) != sorted(species):
-        print("\n⚠️  WARNUNG: Species-Liste stimmt nicht mit Dataset überein!")
-        print(f"   Dataset hat: {sorted(dataset_labels)}")
-        print(f"   Erkannt wurden: {sorted(species)}")
+        print(_('train_species_mismatch_warning'))
+        print(_('train_species_mismatch_details', dataset=sorted(dataset_labels), detected=sorted(species)))
         raise ValueError("Species mismatch - bitte Verzeichnisstruktur prüfen!")
     
     # Use dataset labels (they are already correctly mapped)
     species = dataset_labels
-    print(f"\nVerwende Dataset Label-Mapping: {species}")
+    print(_('train_using_dataset_labels', labels=species))
     
     # Prepare model and processor with correct species order
     model, processor = prepare_model_and_processor(species)
     
     # Apply transforms
-    print("\nAppliziere Transformationen...")
+    print(_('train_applying_transforms'))
     dataset["train"] = dataset["train"].map(
         lambda x: transform_function(x, processor, is_training=True),
         batched=True,
@@ -295,16 +297,16 @@ def train_model(data_dir, output_dir, model_name="google/efficientnet-b0",
     )
     
     # Train
-    print("\nStarte Training...")
-    print(f"Batch Size: {batch_size}")
-    print(f"Learning Rate: {learning_rate}")
-    print(f"Epochs: {num_epochs}")
+    print(_('train_starting'))
+    print(_('train_batch_size', size=batch_size))
+    print(_('train_learning_rate', rate=learning_rate))
+    print(_('train_epochs', epochs=num_epochs))
     
     trainer.train()
     
     # Save final model
     final_model_path = model_output_dir / "final"
-    print(f"\nSpeichere finales Modell: {final_model_path}")
+    print(_('train_saving_model', path=final_model_path))
     trainer.save_model(str(final_model_path))
     processor.save_pretrained(str(final_model_path))
     
@@ -322,8 +324,8 @@ def train_model(data_dir, output_dir, model_name="google/efficientnet-b0",
     with open(final_model_path / "training_config.json", "w") as f:
         json.dump(config, f, indent=2)
     
-    print("\n✅ Training abgeschlossen!")
-    print(f"📁 Modell gespeichert in: {final_model_path}")
+    print(_('train_complete'))
+    print(_('train_model_saved', path=final_model_path))
     
     return str(final_model_path)
 

@@ -22,10 +22,11 @@ def test_model(model_path: str, data_dir: str = None, image_path: str = None):
     """
     from pathlib import Path
     import random
+    from vogel_model_trainer.i18n import _
     
     model_path = str(Path(model_path).expanduser())
     
-    print(f"🤖 Lade Modell: {model_path}")
+    print(_('test_loading_model', path=model_path))
     classifier = pipeline(
         "image-classification",
         model=model_path,
@@ -35,12 +36,12 @@ def test_model(model_path: str, data_dir: str = None, image_path: str = None):
     # Single image test
     if image_path:
         image_path = str(Path(image_path).expanduser())
-        print(f"🖼️  Klassifiziere Bild: {image_path}")
+        print(_('test_classifying_image', path=image_path))
         img = Image.open(image_path)
         
         results = classifier(img, top_k=5)
         
-        print("\nErgebnisse:")
+        print(_('test_results'))
         print("=" * 50)
         for i, result in enumerate(results, 1):
             print(f"{i}. {result['label']:15s} - {result['score']:.4f} ({result['score']*100:.1f}%)")
@@ -55,7 +56,7 @@ def test_model(model_path: str, data_dir: str = None, image_path: str = None):
         if not val_dir.exists():
             raise FileNotFoundError(f"Validation directory not found: {val_dir}")
         
-        print(f"\n🧪 Teste auf Validation Set: {val_dir}")
+        print(_('test_on_validation', path=val_dir))
         print("=" * 70)
         
         species = [d.name for d in val_dir.iterdir() if d.is_dir()]
@@ -68,7 +69,7 @@ def test_model(model_path: str, data_dir: str = None, image_path: str = None):
             images = list(species_dir.glob("*.jpg"))
             
             if not images:
-                print(f"⚠️  Keine Bilder für {sp} gefunden")
+                print(_('test_no_images_found', species=sp))
                 continue
             
             # Test random sample
@@ -98,7 +99,7 @@ def test_model(model_path: str, data_dir: str = None, image_path: str = None):
         overall_accuracy = correct / total if total > 0 else 0
         
         print("=" * 70)
-        print(f"📊 Gesamtgenauigkeit: {correct}/{total} = {overall_accuracy*100:.1f}%")
+        print(_('test_overall_accuracy', correct=correct, total=total, accuracy=overall_accuracy*100))
         
         return {
             "overall_accuracy": overall_accuracy,
@@ -110,13 +111,15 @@ def test_model(model_path: str, data_dir: str = None, image_path: str = None):
     raise ValueError("Entweder data_dir oder image_path muss angegeben werden")
 
 if __name__ == "__main__":
+    from vogel_model_trainer.i18n import _
+    
     if len(sys.argv) < 2:
-        print("Usage:")
-        print("  Test single image:")
-        print("    python test_model.py <model_path> <image_path>")
+        print(_('test_usage'))
+        print(_('test_usage_single'))
+        print(_('test_usage_single_cmd'))
         print()
-        print("  Test on validation set:")
-        print("    python test_model.py <model_path> --data-dir <data_dir>")
+        print(_('test_usage_validation'))
+        print(_('test_usage_validation_cmd'))
         sys.exit(1)
     
     model_path = sys.argv[1]
@@ -129,5 +132,5 @@ if __name__ == "__main__":
         data_dir = sys.argv[data_dir_idx] if data_dir_idx < len(sys.argv) else None
         test_model(model_path, data_dir=data_dir)
     else:
-        print("❌ Bitte entweder Bildpfad oder --data-dir angeben")
+        print(_('test_error_no_input'))
         sys.exit(1)
