@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2025-11-09
+
+### Added
+- **Internationalization (i18n)**: Multi-language support for CLI output
+  - New `i18n.py` module with automatic language detection
+  - Support for English, German, and Japanese
+  - Automatic language selection based on LANG environment variable
+  - Translated output for extractor and organizer modules
+- **Species Confidence Filtering**: New `--species-threshold` parameter
+  - Filter auto-classified birds by confidence level (e.g., 0.85 for 85%)
+  - Only exports birds meeting minimum confidence threshold
+  - Improves dataset quality by excluding uncertain predictions
+- **Enhanced Documentation**: 
+  - Visual workflow diagrams for iterative training in all READMEs
+  - Phase 1 (manual labeling) and Phase 2 (auto-classification) clearly illustrated
+  - Virtual environment recommendations added to installation sections
+  - Practical examples showing accuracy improvements (92% → 96%)
+
+### Changed
+- **extractor.py**: All print statements now use i18n translations
+- **organizer.py**: Core output messages translated
+- **README files**: Added ASCII workflow diagrams showing iterative model improvement
+
+### Technical Details
+- `i18n.py`: 100+ translation keys covering all major operations
+- Language detection via `locale` module and LANG environment variable
+- Translation keys for extraction, organization, training, and testing workflows
+- Backward compatible - English used as fallback if language not supported
+
 ## [0.1.2] - 2025-11-09
 
 ### Added

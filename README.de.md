@@ -35,6 +35,23 @@ Ein spezialisiertes Toolkit zum Erstellen von hochgenauen Vogelarten-Klassifizie
 
 ### Installation
 
+#### Empfohlen: Virtuelle Umgebung verwenden
+
+```bash
+# Virtuelle Umgebung erstellen
+python3 -m venv venv
+
+# Virtuelle Umgebung aktivieren
+source venv/bin/activate  # Auf Linux/Mac
+# oder
+venv\Scripts\activate     # Auf Windows
+
+# vogel-model-trainer installieren
+pip install vogel-model-trainer
+```
+
+#### Schnell-Installation
+
 ```bash
 # Installation von PyPI
 pip install vogel-model-trainer
@@ -219,28 +236,99 @@ vogel-trainer test ~/models/final/ image.jpg
 
 ## 🔄 Iterativer Training-Workflow
 
-Verbessere dein Modell durch iteratives Erweitern deines Datasets:
+Verbessere deine Modell-Genauigkeit durch iterative Verfeinerung mit Auto-Klassifizierung:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 1: Initiales Modell (Manuelle Beschriftung)             │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+    ┌──────────────────────────────────────────────┐
+    │  1. Extraktion mit manuellen Labels          │
+    │     vogel-trainer extract video.mp4          │
+    │       --folder data/ --bird kohlmeise        │
+    └──────────────────────────────────────────────┘
+                              │
+                              ▼
+    ┌──────────────────────────────────────────────┐
+    │  2. Dataset organisieren (80/20 Split)       │
+    │     vogel-trainer organize data/             │
+    │       -o organized/                          │
+    └──────────────────────────────────────────────┘
+                              │
+                              ▼
+    ┌──────────────────────────────────────────────┐
+    │  3. Initiales Modell trainieren              │
+    │     vogel-trainer train organized/           │
+    │       -o models/v1/                          │
+    │     Ergebnis: 92% Genauigkeit ✓              │
+    └──────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 2: Modell-Verbesserung (Auto-Klassifizierung)           │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+    ┌──────────────────────────────────────────────┐
+    │  4. Auto-Extraktion mit trainiertem Modell   │
+    │     vogel-trainer extract neue-videos/       │
+    │       --folder data-v2/                      │
+    │       --species-model models/v1/final/       │
+    │       --species-threshold 0.85               │
+    │     → Automatisch nach Arten sortiert! 🎯    │
+    └──────────────────────────────────────────────┘
+                              │
+                              ▼
+    ┌──────────────────────────────────────────────┐
+    │  5. Manuelle Überprüfung & Korrekturen      │
+    │     • Auto-Klassifizierungen prüfen          │
+    │     • Falsch klassifizierte Bilder verschieb.│
+    │     • Mit vorherigem Dataset zusammenführen  │
+    └──────────────────────────────────────────────┘
+                              │
+                              ▼
+    ┌──────────────────────────────────────────────┐
+    │  6. Neutraining mit erweitertem Dataset      │
+    │     vogel-trainer organize data-v2/          │
+    │       -o organized-v2/                       │
+    │     vogel-trainer train organized-v2/        │
+    │       -o models/v2/                          │
+    │     Ergebnis: 96% Genauigkeit! 🎉            │
+    └──────────────────────────────────────────────┘
+                              │
+                              ▼
+              ♻️  Wiederhole für weitere Verbesserungen
+```
+
+**Hauptvorteile:**
+- 🚀 **Schnellere Beschriftung**: Auto-Klassifizierung spart manuelle Arbeit
+- 📈 **Bessere Genauigkeit**: Mehr Trainingsdaten = besseres Modell
+- 🎯 **Qualitätskontrolle**: `--species-threshold` filtert unsichere Vorhersagen
+- 🔄 **Kontinuierliche Verbesserung**: Jede Iteration verbessert das Modell
+
+**Beispiel-Befehle:**
 
 ```bash
-# 1. Initiales Training mit manuellen Labels
-vogel-trainer extract ~/Videos/batch1/*.mp4 --bird kohlmeise --output ~/data/
-vogel-trainer organize --source ~/data/ --output ~/data/organized/
-vogel-trainer train --data ~/data/organized/ --output ~/models/v1/
+# Phase 1: Manuelles Training (initiales Dataset)
+vogel-trainer extract ~/Videos/batch1/*.mp4 --folder ~/data/ --bird kohlmeise
+vogel-trainer organize ~/data/ -o ~/data/organized/
+vogel-trainer train ~/data/organized/ -o ~/models/v1/
 
-# 2. Nutze trainiertes Modell um mehr Daten zu extrahieren
+# Phase 2: Auto-Klassifizierung mit trainiertem Modell
 vogel-trainer extract ~/Videos/batch2/*.mp4 \
+  --folder ~/data-v2/ \
   --species-model ~/models/v1/final/ \
-  --output ~/data/iteration2/
+  --species-threshold 0.85
 
-# 3. Review und korrigiere Fehlklassifizierungen manuell
-# Verschiebe falsche Vorhersagen in korrekte Arten-Ordner
+# Klassifizierungen in ~/data-v2/<art>/ Ordnern überprüfen
+# Falsch klassifizierte Bilder in korrekte Arten-Ordner verschieben
 
-# 4. Kombiniere Datasets und trainiere neu
-cp -r ~/data/iteration2/* ~/data/
-vogel-trainer organize --source ~/data/ --output ~/data/organized/
-vogel-trainer train --data ~/data/organized/ --output ~/models/v2/
-
-# Ergebnis: Höhere Genauigkeit! 🎉
+# Datasets zusammenführen und neu trainieren
+cp -r ~/data-v2/* ~/data/
+vogel-trainer organize ~/data/ -o ~/data/organized-v2/
+vogel-trainer train ~/data/organized-v2/ -o ~/models/v2/
 ```
 
 ---

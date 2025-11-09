@@ -16,6 +16,9 @@ from transformers import AutoImageProcessor, AutoModelForImageClassification
 import torch
 import glob
 
+# Import i18n for translations
+from vogel_model_trainer.i18n import _
+
 # Default configuration (can be overridden via command line)
 DEFAULT_THRESHOLD = 0.5  # Higher threshold for better quality birds
 DEFAULT_SAMPLE_RATE = 3  # Check more frames for better coverage
@@ -25,7 +28,7 @@ TARGET_IMAGE_SIZE = 224  # Optimal size for EfficientNet-B0 training
 def extract_birds_from_video(video_path, output_dir, bird_species=None, 
                              detection_model=None, species_model=None,
                              threshold=None, sample_rate=None, resize_to_target=True,
-                             target_class=14):
+                             species_threshold=None, target_class=14):
     """
     Extract bird crops from video and save as images
     
@@ -38,6 +41,7 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
         threshold: Detection confidence threshold (default: 0.5 for high quality)
         sample_rate: Analyze every Nth frame (default: 3)
         resize_to_target: Resize images to 224x224 for optimal training (default: True)
+        species_threshold: Minimum confidence for species classification (default: None, no filter)
         target_class: COCO class for bird (14)
     """
     # Use defaults if not specified
@@ -49,39 +53,41 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
     classifier = None
     processor = None
     if species_model:
-        print(f"🧠 Loading species classifier: {species_model}")
+        print(_('loading_species') + f" {species_model}")
         processor = AutoImageProcessor.from_pretrained(species_model)
         classifier = AutoModelForImageClassification.from_pretrained(species_model)
         classifier.eval()
-        print(f"   ✅ Loaded with {len(classifier.config.id2label)} species classes")
+        print(_('loaded_species_classes', count=len(classifier.config.id2label)))
     
     # Load YOLO model
-    print(f"🤖 Loading YOLO model: {detection_model}")
+    print(_('loading_yolo') + f" {detection_model}")
     model = YOLO(detection_model)
     
     # Open video
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
-        print(f"❌ Cannot open video: {video_path}")
+        print(_('cannot_open_video', path=video_path))
         return
     
     # Get video properties
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = cap.get(cv2.CAP_PROP_FPS)
     
-    print(f"📹 Video: {Path(video_path).name}")
-    print(f"   📊 {total_frames} frames, {fps:.1f} FPS")
-    print(f"   🔍 Analyzing every {sample_rate}. frame...")
-    print(f"   🎯 Threshold: {threshold}")
-    print(f"   📐 Image size: {TARGET_IMAGE_SIZE}x{TARGET_IMAGE_SIZE}px" if resize_to_target else "   📐 Image size: Original")
+    print(_('video_info') + f" {Path(video_path).name}")
+    print(_('total_frames', total=total_frames, fps=fps))
+    print(_('analyzing_every_nth', n=sample_rate))
+    print(_('detection_threshold', threshold=threshold))
+    if species_threshold is not None:
+        print(_('species_threshold', threshold=species_threshold))
+    print(_('image_size', size=TARGET_IMAGE_SIZE) if resize_to_target else _('image_size_original'))
     
     # Determine output mode
     if species_model:
-        print(f"   🤖 Auto-sorting mode: Using species classifier")
+        print(_('mode_autosorting'))
     elif bird_species:
-        print(f"   🏷️  Manual mode: Species = {bird_species}")
+        print(_('mode_manual', species=bird_species))
     else:
-        print(f"   📦 Standard mode: All birds in one directory")
+        print(_('mode_standard'))
     
     # Create output directory
     output_path = Path(output_dir)
@@ -157,6 +163,11 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                                 species_name = bird_species
                                 species_conf = 1.0
                             
+                            # Apply species confidence filter if specified
+                            if species_threshold is not None and species_conf < species_threshold:
+                                print(_('bird_skipped', species=species_name, conf=species_conf, threshold=species_threshold, frame=frame_num))
+                                continue
+                            
                             # Create species subdirectory if needed
                             if species_name:
                                 species_dir = output_path / species_name
@@ -196,52 +207,52 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                                 cv2.imwrite(str(save_path), bird_crop)
                             
                             if species_name:
-                                print(f"   ✅ Bird #{bird_count}: {species_name} (conf {species_conf:.2f}), frame {frame_num}")
+                                print(_('bird_extracted', count=bird_count, species=species_name, conf=species_conf, frame=frame_num))
                             else:
-                                print(f"   ✅ Extracted bird #{bird_count}: frame {frame_num}, conf {conf:.2f}")
+                                print(_('bird_extracted_simple', count=bird_count, frame=frame_num, conf=conf))
             
             frame_num += 1
             
             # Progress
             if frame_num % 100 == 0:
                 progress = (frame_num / total_frames) * 100
-                print(f"   ⏳ Progress: {progress:.1f}% ({frame_num}/{total_frames} frames)")
+                print(_('progress', percent=progress, current=frame_num, total=total_frames))
     
     except KeyboardInterrupt:
-        print("\n⚠️  Extraction interrupted by user")
+        print(_('extraction_interrupted'))
     
     finally:
         cap.release()
     
-    print(f"\n✅ Extraction complete!")
-    print(f"   📁 Output directory: {output_path}")
-    print(f"   🐦 Total birds extracted: {bird_count}")
+    print(_('extraction_complete'))
+    print(_('output_directory', path=output_path))
+    print(_('total_birds', count=bird_count))
     
     # Show species breakdown if applicable
     if species_counts:
-        print(f"\n📊 Species breakdown:")
+        print(_('species_breakdown'))
         for species, count in sorted(species_counts.items(), key=lambda x: x[1], reverse=True):
-            print(f"   • {species}: {count} birds")
+            print(_('species_count', species=species, count=count))
     
-    print(f"   🆔 Session ID: {session_id}")
+    print(_('session_id', id=session_id))
     
     if species_model:
-        print(f"\n💡 Filename format: {session_id}_<id>_f<frame>_det<det-conf>_cls<species-conf>.jpg")
+        print(_('filename_format', format=f"{session_id}_<id>_f<frame>_det<det-conf>_cls<species-conf>.jpg"))
     else:
-        print(f"\n💡 Filename format: {session_id}_<unique-id>_f<frame>_c<confidence>.jpg")
+        print(_('filename_format', format=f"{session_id}_<unique-id>_f<frame>_c<confidence>.jpg"))
     
-    print(f"\n💡 Next steps:")
+    print(_('next_steps'))
     if species_model or bird_species:
-        print(f"   1. Review extracted images in species subdirectories: {output_path}")
-        print(f"   2. Manually verify auto-classifications (if using species model)")
-        print(f"   3. Use organize_dataset.py to create train/val split")
-        print(f"   4. Train improved model with new data!")
+        print(_('next_step_review', path=output_path))
+        print(_('next_step_verify'))
+        print(_('next_step_organize'))
+        print(_('next_step_train'))
     else:
-        print(f"   1. Review extracted images in: {output_path}")
-        print(f"   2. Create subdirectories for each species (e.g., kohlmeise/, blaumeise/, etc.)")
-        print(f"   3. Move images into correct species folders")
-        print(f"   4. Use organize_dataset.py to create train/val split")
-    print(f"   4. Use this dataset to train a custom model!")
+        print(_('next_step_review', path=output_path))
+        print("   2. Create subdirectories for each species (e.g., kohlmeise/, blaumeise/, etc.)")
+        print("   3. Move images into correct species folders")
+        print(_('next_step_organize'))
+    print("   4. Use this dataset to train a custom model!")
 
 
 def main():
@@ -286,6 +297,8 @@ Examples:
     parser.add_argument('--detection-model', default=None, help=f'YOLO detection model path (default: {DEFAULT_MODEL})')
     parser.add_argument('--threshold', type=float, default=None, 
                        help=f'Detection confidence threshold (default: {DEFAULT_THRESHOLD} for high quality)')
+    parser.add_argument('--species-threshold', type=float, default=None,
+                       help='Minimum confidence for species classification (e.g., 0.85 for 85%%). Only exports birds with confidence >= this value.')
     parser.add_argument('--sample-rate', type=int, default=None, 
                        help=f'Analyze every Nth frame (default: {DEFAULT_SAMPLE_RATE})')
     parser.add_argument('--recursive', '-r', action='store_true',
@@ -360,17 +373,15 @@ Examples:
                 species_model=args.species_model,
                 threshold=args.threshold,
                 sample_rate=args.sample_rate,
-                resize_to_target=not args.no_resize
+                resize_to_target=not args.no_resize,
+                species_threshold=args.species_threshold
             )
         except Exception as e:
-            print(f"\n❌ Error processing {video_file.name}: {e}")
-            print(f"   Continuing with next video...")
+            print(_('error_processing', name=video_file.name, error=e))
+            print(_('continuing'))
             continue
     
-    print(f"\n{'='*70}")
-    print(f"✅ All videos processed!")
-    print(f"   📁 Output directory: {output_dir}")
-    print(f"{'='*70}")
+    print(_('all_videos_processed', path=output_dir))
 
 
 if __name__ == '__main__':

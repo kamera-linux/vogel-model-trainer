@@ -55,7 +55,8 @@ def extract_command(args):
             species_model=args.species_model,
             threshold=args.threshold,
             sample_rate=args.sample_rate,
-            resize_to_target=(not args.no_resize)
+            resize_to_target=(not args.no_resize),
+            species_threshold=args.species_threshold
         )
 
 
@@ -146,7 +147,7 @@ For more information, visit:
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 0.1.2"
+        version="%(prog)s 0.1.3"
     )
     
     subparsers = parser.add_subparsers(
@@ -193,6 +194,12 @@ For more information, visit:
         type=float,
         default=0.5,
         help="Detection confidence threshold (default: 0.5 for high quality)"
+    )
+    extract_parser.add_argument(
+        "--species-threshold",
+        type=float,
+        default=None,
+        help="Minimum confidence for species classification (e.g., 0.85 for 85%%). Only exports birds with confidence >= this value."
     )
     extract_parser.add_argument(
         "--sample-rate",

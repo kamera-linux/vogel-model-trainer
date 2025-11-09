@@ -35,6 +35,23 @@ A specialized toolkit for creating high-accuracy bird species classifiers tailor
 
 ### Installation
 
+#### Recommended: Using Virtual Environment
+
+```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate  # On Linux/Mac
+# or
+venv\Scripts\activate     # On Windows
+
+# Install vogel-model-trainer
+pip install vogel-model-trainer
+```
+
+#### Quick Install
+
 ```bash
 # Install from PyPI
 pip install vogel-model-trainer
@@ -215,33 +232,104 @@ vogel-trainer test ~/models/my-classifier/ -d ~/organized-data/
 
 ## 🔄 Iterative Training Workflow
 
-Improve your model by iteratively expanding your dataset:
+Improve your model accuracy through iterative refinement using auto-classification:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 1: Initial Model (Manual Labeling)                      │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+    ┌──────────────────────────────────────────────┐
+    │  1. Extract with manual labels               │
+    │     vogel-trainer extract video.mp4          │
+    │       --folder data/ --bird kohlmeise        │
+    └──────────────────────────────────────────────┘
+                              │
+                              ▼
+    ┌──────────────────────────────────────────────┐
+    │  2. Organize dataset (80/20 split)           │
+    │     vogel-trainer organize data/             │
+    │       -o organized/                          │
+    └──────────────────────────────────────────────┘
+                              │
+                              ▼
+    ┌──────────────────────────────────────────────┐
+    │  3. Train initial model                      │
+    │     vogel-trainer train organized/           │
+    │       -o models/v1/                          │
+    │     Result: 92% accuracy ✓                   │
+    └──────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 2: Model Improvement (Auto-Classification)              │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+    ┌──────────────────────────────────────────────┐
+    │  4. Auto-extract with trained model          │
+    │     vogel-trainer extract new-videos/        │
+    │       --folder data-v2/                      │
+    │       --species-model models/v1/final/       │
+    │       --species-threshold 0.85               │
+    │     → Automatically sorted by species! 🎯    │
+    └──────────────────────────────────────────────┘
+                              │
+                              ▼
+    ┌──────────────────────────────────────────────┐
+    │  5. Manual review & corrections              │
+    │     • Check auto-classifications             │
+    │     • Move misclassified images              │
+    │     • Merge with previous dataset            │
+    └──────────────────────────────────────────────┘
+                              │
+                              ▼
+    ┌──────────────────────────────────────────────┐
+    │  6. Retrain with expanded dataset            │
+    │     vogel-trainer organize data-v2/          │
+    │       -o organized-v2/                       │
+    │     vogel-trainer train organized-v2/        │
+    │       -o models/v2/                          │
+    │     Result: 96% accuracy! 🎉                 │
+    └──────────────────────────────────────────────┘
+                              │
+                              ▼
+                    ♻️  Repeat for further improvement
+```
+
+**Key Benefits:**
+- 🚀 **Faster labeling**: Auto-classification saves manual work
+- 📈 **Better accuracy**: More training data = better model
+- 🎯 **Quality control**: `--species-threshold` filters uncertain predictions
+- 🔄 **Continuous improvement**: Each iteration improves the model
+
+**Example Commands:**
 
 ```bash
-# 1. Initial training with manual labels
-vogel-trainer extract ~/Videos/batch1/*.mp4 --bird great-tit --output ~/data/
-vogel-trainer organize --source ~/data/ --output ~/data/organized/
-vogel-trainer train --data ~/data/organized/ --output ~/models/v1/
+# Phase 1: Manual training (initial dataset)
+vogel-trainer extract ~/Videos/batch1/*.mp4 --folder ~/data/ --bird great-tit
+vogel-trainer organize ~/data/ -o ~/data/organized/
+vogel-trainer train ~/data/organized/ -o ~/models/v1/
 
-# 2. Use trained model to extract more data
+# Phase 2: Auto-classification with trained model
 vogel-trainer extract ~/Videos/batch2/*.mp4 \
+  --folder ~/data-v2/ \
   --species-model ~/models/v1/final/ \
-  --output ~/data/iteration2/
+  --species-threshold 0.85
 
-# 3. Review and correct misclassifications manually
-# Move incorrect predictions to correct species folders
+# Review classifications in ~/data-v2/<species>/ folders
+# Move any misclassified images to correct species folders
 
-# 4. Combine datasets and retrain
-cp -r ~/data/iteration2/* ~/data/
-vogel-trainer organize --source ~/data/ --output ~/data/organized/
-vogel-trainer train --data ~/data/organized/ --output ~/models/v2/
-
-# Result: Higher accuracy! 🎉
+# Merge datasets and retrain
+cp -r ~/data-v2/* ~/data/
+vogel-trainer organize ~/data/ -o ~/data/organized-v2/
+vogel-trainer train ~/data/organized-v2/ -o ~/models/v2/
 ```
 
 ---
 
-## 📊 Performance & Best Practices
+##  Performance & Best Practices
 
 ### Dataset Size Recommendations
 

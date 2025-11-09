@@ -11,6 +11,9 @@ import random
 import argparse
 from pathlib import Path
 
+# Import i18n for translations
+from vogel_model_trainer.i18n import _
+
 # Default configuration
 DEFAULT_SOURCE_DIR = Path("/home/imme/vogel-training-data")
 TRAIN_RATIO = 0.8
@@ -148,21 +151,29 @@ def organize_dataset(source_dir, output_dir, train_ratio=TRAIN_RATIO):
     if not source_dir.exists():
         raise FileNotFoundError(f"Source directory not found: {source_dir}")
     
-    print(f"📂 Source: {source_dir}")
-    print(f"📂 Output: {output_dir}")
-    print(f"📊 Train/Val Split: {train_ratio*100:.0f}% / {(1-train_ratio)*100:.0f}%")
+    print(_('organizing_dataset', path=source_dir))
+    print(_('output_dir', path=output_dir))
+    print(_('train_ratio', ratio=train_ratio, val=1-train_ratio))
     print()
     
-    print("🔍 Sammle Bilder nach Vogelart...")
+    print(_('creating_splits'))
     images_by_species = collect_images_by_species(source_dir)
     
     if not images_by_species:
-        raise ValueError("Keine Bilder gefunden!")
+        raise ValueError("No images found!")
     
-    print("📋 Splitte und kopiere Bilder...")
+    print(_('creating_splits'))
     stats = split_and_copy(images_by_species, output_dir, train_ratio)
     
-    print_summary(stats, output_dir)
+    print(_('organization_complete'))
+    print(_('dataset_summary'))
+    total_train = sum(s["train"] for s in stats.values())
+    total_val = sum(s["val"] for s in stats.values())
+    total = sum(s["total"] for s in stats.values())
+    print(_('total_images', count=total))
+    print(_('training_images', count=total_train))
+    print(_('validation_images', count=total_val))
+    
     return stats
 
 
