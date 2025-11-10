@@ -7,6 +7,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2025-11-10
+
+### Added
+- **Duplicate Detection in Extract**: Prevent extracting similar/duplicate images
+  - `--deduplicate`: Enable perceptual hashing to skip duplicate images
+  - `--similarity-threshold N`: Configure duplicate detection sensitivity (0-64, default: 5)
+  - Uses pHash algorithm, robust against resize/crop/minor color changes
+  - Session-level cache prevents duplicates within same extraction run
+  - Statistics show number of skipped duplicates
+
+- **New Deduplicate Command**: Clean existing datasets from duplicates
+  - `vogel-trainer deduplicate <data_dir>`: Find and remove duplicate images
+  - Three modes: `report` (show only), `delete` (remove), `move` (to duplicates/)
+  - Four hash methods: `phash` (default), `dhash`, `whash`, `average_hash`
+  - Keep strategies: `first` (chronological) or `largest` (file size)
+  - Recursive directory scanning with `--recursive`
+
+- **Advanced Extraction Filters**: 8 new quality control parameters
+  - `--species-threshold`: Minimum confidence for species classification (e.g., 0.85)
+  - `--max-detections N`: Limit detections per frame (default: 10)
+  - `--min-box-size N`: Filter out small/distant birds (default: 50px)
+  - `--max-box-size N`: Filter out large false positives (default: 800px)
+  - `--quality N`: JPEG quality 1-100 (default: 95)
+  - `--skip-blurry`: Skip out-of-focus images using Laplacian variance
+  - `--image-size N`: Consistent with train command (224/384/448 or 0 for original)
+  - All filters fully internationalized (EN/DE/JA)
+
+- **13 New Training Parameters**: Professional ML workflow control
+  - `--early-stopping-patience N`: Stop when validation plateaus (default: 5)
+  - `--weight-decay N`: L2 regularization strength (default: 0.01)
+  - `--warmup-ratio N`: Learning rate warmup (default: 0.1)
+  - `--label-smoothing N`: Label smoothing factor (default: 0.1)
+  - `--save-total-limit N`: Maximum checkpoints to keep (default: 3)
+  - `--augmentation-strength`: none/light/medium/heavy intensity levels
+  - `--image-size N`: Support for 224/384/448px images
+  - `--scheduler`: cosine/linear/constant LR schedules
+  - `--seed N`: Reproducible training with fixed random seed
+  - `--resume-from-checkpoint`: Continue interrupted training
+  - `--gradient-accumulation-steps N`: Simulate larger batch sizes
+  - `--mixed-precision`: fp16/bf16 support for faster GPU training
+  - `--push-to-hub`: Automatic HuggingFace Hub upload
+
+- **4-Level Data Augmentation System**: Configurable augmentation intensity
+  - `none`: No augmentation (only normalization)
+  - `light`: Minimal transforms (±10° rotation, minimal color jitter)
+  - `medium`: Balanced transforms (±20° rotation, affine, color jitter, blur) - default
+  - `heavy`: Aggressive transforms (±30° rotation, strong variations)
+
+- **Extended i18n Coverage**: 28 new translation keys
+  - 22 keys for deduplication (scanning, progress, results, statistics)
+  - 6 keys for extraction filters (detections, box size, quality, blur, dedup)
+  - All translations in English, German, Japanese
+  - Total i18n coverage: 180+ keys across all modules
+
+### Changed
+- **Extract `--image-size` Parameter**: Replaced `--no-resize` boolean
+  - Old: `--no-resize` (boolean flag)
+  - New: `--image-size N` (integer, default: 224, use 0 for original)
+  - Consistent with train command for easier workflows
+  - Breaking change: Users using `--no-resize` must switch to `--image-size 0`
+
+### Improved
+- **Extraction Quality**: Multiple filters prevent low-quality training data
+  - Box size filtering removes distant birds and false positives
+  - Blur detection skips out-of-focus images
+  - Duplicate detection prevents redundant similar images
+  - Configurable JPEG quality balances size vs quality
+
+- **Training Flexibility**: Professional-grade hyperparameter control
+  - Fine-tune augmentation intensity for dataset size
+  - Mixed precision training for 2x speed on modern GPUs
+  - Reproducible experiments with seed parameter
+  - Resume training from any checkpoint
+
+- **Documentation**: Comprehensive README updates
+  - All 8 new extraction parameters documented with examples
+  - All 13 new training parameters explained
+  - New deduplicate command section with usage examples
+  - Feature list expanded to 14 items
+  - Both English and German READMEs fully updated
+
+### Dependencies
+- Added `imagehash>=4.3.0` for perceptual hashing
+
 ## [0.1.5] - 2025-11-09
 
 ### Fixed

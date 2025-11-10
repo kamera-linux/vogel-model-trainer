@@ -21,12 +21,16 @@ A specialized toolkit for creating high-accuracy bird species classifiers tailor
 - 🎯 **YOLO-based Bird Detection** - Automated bird cropping from videos using YOLOv8
 - 🤖 **Three Extraction Modes** - Manual labeling, auto-sorting, or standard extraction
 - 📁 **Wildcard Support** - Batch process multiple videos with glob patterns
-- 🖼️ **Auto-Resize to 224x224** - Optimal image size for training
+- 🖼️ **Flexible Image Sizes** - 224/384/448px or keep original size
+- 🔍 **Advanced Filtering** - Box size, blur detection, confidence thresholds
+- 🔄 **Duplicate Detection** - Perceptual hashing removes similar images
 - 🧠 **EfficientNet-B0 Training** - Lightweight yet powerful classification model
-- 🎨 **Enhanced Data Augmentation** - Rotation, affine transforms, color jitter, gaussian blur
-- 📊 **Optimized Training** - Cosine LR scheduling, label smoothing, early stopping
+- 🎨 **4-Level Data Augmentation** - None/light/medium/heavy intensity options
+- ⚡ **Mixed Precision Training** - FP16/BF16 support for faster GPU training
+- 📊 **Advanced Training Options** - 13 configurable parameters for fine-tuning
+- 🔧 **Dataset Deduplication** - Clean existing datasets with perceptual hashing
 - ⏸️ **Graceful Shutdown** - Save model state on Ctrl+C interruption
-- 🔄 **Iterative Training** - Use trained models to expand your dataset
+- 🌍 **Full i18n Support** - English, German, Japanese translations
 - 📈 **Per-Species Metrics** - Detailed accuracy breakdown by species
 
 ---
@@ -168,11 +172,67 @@ vogel-trainer extract ~/Videos/ \
 - `--folder`: Base directory for extracted images (required)
 - `--bird`: Manual species label (creates subdirectory)
 - `--species-model`: Path to trained model for auto-classification
+- `--species-threshold`: Minimum confidence for species classification (e.g., 0.85 for 85%)
 - `--threshold`: YOLO confidence threshold (default: 0.5)
 - `--sample-rate`: Process every Nth frame (default: 3)
 - `--detection-model`: YOLO model path (default: yolov8n.pt)
-- `--no-resize`: Keep original image size (default: resize to 224x224)
+- `--image-size`: Target image size in pixels (default: 224, use 0 for original size)
+- `--max-detections`: Maximum detections per frame (default: 10)
+- `--min-box-size`: Minimum bounding box size in pixels (default: 50)
+- `--max-box-size`: Maximum bounding box size in pixels (default: 800)
+- `--quality`: JPEG quality 1-100 (default: 95)
+- `--skip-blurry`: Skip blurry/out-of-focus images (experimental)
+- `--deduplicate`: Skip duplicate/similar images using perceptual hashing
+- `--similarity-threshold`: Similarity threshold for duplicates - Hamming distance 0-64 (default: 5)
 - `--recursive, -r`: Search directories recursively
+- `--log`: Save console output to log file (`/var/log/vogel-kamera-linux/YYYY/KWXX/`)
+
+**Advanced Filtering Examples:**
+
+```bash
+# High-quality extraction with all filters
+vogel-trainer extract video.mp4 \
+  --folder data/ \
+  --bird rotkehlchen \
+  --threshold 0.6 \
+  --min-box-size 80 \
+  --max-box-size 600 \
+  --skip-blurry \
+  --deduplicate \
+  --quality 98
+
+# Extract with duplicate detection (prevents similar images)
+vogel-trainer extract ~/Videos/*.mp4 \
+  --folder data/ \
+  --bird kohlmeise \
+  --deduplicate \
+  --similarity-threshold 3  # Stricter duplicate detection
+
+# Large image size for high-detail training
+vogel-trainer extract video.mp4 \
+  --folder data/ \
+  --bird amsel \
+  --image-size 384  # Larger images for better quality
+
+# Auto-sort with confidence filter (only high-confidence classifications)
+vogel-trainer extract video.mp4 \
+  --folder data/ \
+  --species-model ~/models/classifier/ \
+  --species-threshold 0.90 \
+  --deduplicate
+```
+
+**Logging Example:**
+
+```bash
+# Save output to log file
+vogel-trainer extract ~/Videos/great-tit.mp4 \
+  --folder ~/data/ \
+  --bird great-tit \
+  --log
+
+# Log file path: /var/log/vogel-kamera-linux/2025/KW45/20251109_160000_extract.log
+```
 
 ### 2. Organize Dataset
 
@@ -199,12 +259,74 @@ organized/
 vogel-trainer train ~/organized-data/ -o ~/models/my-classifier/
 ```
 
+**Training Parameters:**
+- `--batch-size`: Training batch size (default: 16)
+- `--epochs`: Number of training epochs (default: 50)
+- `--learning-rate`: Learning rate (default: 2e-4)
+- `--early-stopping-patience`: Early stopping patience in epochs (default: 5, 0 to disable)
+- `--weight-decay`: Weight decay for regularization (default: 0.01)
+- `--warmup-ratio`: Learning rate warmup ratio (default: 0.1)
+- `--label-smoothing`: Label smoothing factor (default: 0.1, 0 to disable)
+- `--save-total-limit`: Maximum checkpoints to keep (default: 3)
+- `--augmentation-strength`: Data augmentation intensity: `none`, `light`, `medium` (default), `heavy`
+- `--image-size`: Input image size in pixels (default: 224, supports 224/384/448)
+- `--scheduler`: Learning rate scheduler: `cosine` (default), `linear`, `constant`
+- `--seed`: Random seed for reproducibility (default: 42)
+- `--resume-from-checkpoint`: Path to checkpoint to resume training
+- `--gradient-accumulation-steps`: Gradient accumulation steps (default: 1)
+- `--mixed-precision`: Mixed precision training: `no` (default), `fp16`, `bf16`
+- `--push-to-hub`: Push model to HuggingFace Hub (default: False)
+- `--log`: Save console output to log file
+
+**Augmentation Strength Levels:**
+
+- **none**: No augmentation (only normalization)
+- **light**: Small rotations (±10°), minimal color jitter
+- **medium** (default): Moderate rotations (±20°), affine transforms, color jitter, gaussian blur
+- **heavy**: Strong rotations (±30°), aggressive transforms, strong color variations
+
+**Advanced Training Examples:**
+
+```bash
+# High-accuracy training with large images and heavy augmentation
+vogel-trainer train ~/organized-data/ \
+  -o ~/models/high-accuracy/ \
+  --image-size 384 \
+  --augmentation-strength heavy \
+  --epochs 100 \
+  --early-stopping-patience 10 \
+  --batch-size 8
+
+# Fast training with mixed precision (requires GPU)
+vogel-trainer train ~/organized-data/ \
+  -o ~/models/fast/ \
+  --mixed-precision fp16 \
+  --batch-size 32 \
+  --gradient-accumulation-steps 2
+
+# Reproducible training with fixed seed
+vogel-trainer train ~/organized-data/ \
+  -o ~/models/reproducible/ \
+  --seed 12345 \
+  --augmentation-strength light
+
+# Resume interrupted training
+vogel-trainer train ~/organized-data/ \
+  -o ~/models/continued/ \
+  --resume-from-checkpoint ~/models/my-classifier/checkpoints/checkpoint-1000
+
+# Training with logging
+vogel-trainer train ~/organized-data/ \
+  -o ~/models/logged/ \
+  --log
+```
+
 **Training Configuration:**
 - Base Model: `google/efficientnet-b0` (8.5M parameters)
-- Optimizer: AdamW with cosine LR schedule
-- Augmentation: Rotation, affine, color jitter, gaussian blur
-- Regularization: Weight decay 0.01, label smoothing 0.1
-- Early Stopping: Patience of 7 epochs
+- Optimizer: AdamW with configurable LR schedule
+- Augmentation: 4 intensity levels (none/light/medium/heavy)
+- Regularization: Weight decay, label smoothing, early stopping
+- Mixed Precision: FP16/BF16 support for faster training on GPU
 
 **Output:**
 ```
@@ -217,7 +339,50 @@ vogel-trainer train ~/organized-data/ -o ~/models/my-classifier/
     └── preprocessor_config.json
 ```
 
-### 4. Test Model
+### 4. Deduplicate Dataset (New!)
+
+Remove duplicate or very similar images from your dataset to improve training quality:
+
+```bash
+# Report duplicates without deleting
+vogel-trainer deduplicate ~/training-data/ --recursive
+
+# Delete duplicates (keep first occurrence)
+vogel-trainer deduplicate ~/training-data/ \
+  --mode delete \
+  --recursive
+
+# Move duplicates to separate folder
+vogel-trainer deduplicate ~/training-data/ \
+  --mode move \
+  --recursive
+
+# Stricter duplicate detection
+vogel-trainer deduplicate ~/training-data/ \
+  --threshold 3 \
+  --recursive
+
+# Keep largest file instead of first
+vogel-trainer deduplicate ~/training-data/ \
+  --mode delete \
+  --keep largest \
+  --recursive
+```
+
+**Deduplication Parameters:**
+- `--threshold`: Similarity threshold - Hamming distance 0-64, lower=stricter (default: 5)
+- `--method`: Hash method: `phash` (default, recommended), `dhash`, `whash`, `average_hash`
+- `--mode`: Action: `report` (show only, default), `delete` (remove), `move` (to duplicates/)
+- `--keep`: Which duplicate to keep: `first` (chronological, default) or `largest` (file size)
+- `--recursive, -r`: Search recursively through subdirectories
+
+**How it works:**
+- Uses perceptual hashing (pHash) to detect visually similar images
+- Robust against resizing, cropping, and minor color changes
+- Threshold of 5 = very similar, 10 = similar, >15 = different
+- Safe default: `report` mode prevents accidental deletion
+
+### 5. Test Model
 
 ```bash
 # Test on validation dataset
@@ -231,7 +396,6 @@ vogel-trainer test ~/models/my-classifier/ -d ~/organized-data/
 ---
 
 ## 🔄 Iterative Training Workflow
-
 Improve your model accuracy through iterative refinement using auto-classification:
 
 ```mermaid

@@ -84,22 +84,66 @@ def prepare_model_and_processor(species):
     
     return model, processor
 
-def get_augmentation_transforms():
-    """Create data augmentation transforms (applied BEFORE processor)."""
-    return Compose([
-        RandomResizedCrop(IMAGE_SIZE, scale=(0.7, 1.0)),  # More scale variation
-        RandomHorizontalFlip(p=0.5),
-        RandomRotation(degrees=15),  # Birds can appear at different angles
-        RandomAffine(degrees=0, translate=(0.1, 0.1)),  # Slight position shifts
-        ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),  # Stronger color augmentation
-        GaussianBlur(kernel_size=3, sigma=(0.1, 2.0)),  # Simulate focus variations
-    ])
+def get_augmentation_transforms(strength="medium", image_size=224):
+    """
+    Get data augmentation transforms based on strength level.
+    
+    Args:
+        strength: Augmentation intensity - "none", "light", "medium", "heavy"
+        image_size: Target image size for RandomResizedCrop
+        
+    Returns:
+        Compose: Torchvision transform composition
+    """
+    if strength == "none":
+        # No augmentation, just basic resize
+        return Compose([
+            RandomResizedCrop(image_size, scale=(1.0, 1.0)),  # No scale variation
+        ])
+    
+    elif strength == "light":
+        # Minimal augmentation for high-quality datasets
+        return Compose([
+            RandomResizedCrop(image_size, scale=(0.9, 1.0)),
+            RandomHorizontalFlip(p=0.3),
+            RandomRotation(degrees=5),
+        ])
+    
+    elif strength == "medium":
+        # Balanced augmentation (default)
+        return Compose([
+            RandomResizedCrop(image_size, scale=(0.8, 1.0)),
+            RandomHorizontalFlip(p=0.5),
+            RandomRotation(degrees=10),
+            ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.05),
+        ])
+    
+    elif strength == "heavy":
+        # Aggressive augmentation for small datasets
+        return Compose([
+            RandomResizedCrop(image_size, scale=(0.7, 1.0)),
+            RandomHorizontalFlip(p=0.5),
+            RandomRotation(degrees=15),
+            RandomAffine(degrees=0, translate=(0.1, 0.1)),
+            ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
+            GaussianBlur(kernel_size=3, sigma=(0.1, 2.0)),
+        ])
+    
+    else:
+        raise ValueError(f"Unknown augmentation strength: {strength}. Choose from: none, light, medium, heavy")
 
-def transform_function(examples, processor, is_training=True):
+def transform_function(examples, processor, is_training=True, augmentation_strength="medium", image_size=224):
     """Transform function for dataset mapping.
     
     Uses processor for normalization to match inference behavior.
     Only applies data augmentation for training.
+    
+    Args:
+        examples: Batch of examples from dataset
+        processor: HuggingFace image processor
+        is_training: Whether to apply augmentation
+        augmentation_strength: Augmentation intensity level
+        image_size: Target image size
     """
     # Process each image and collect pixel values
     pixel_values = []
@@ -109,8 +153,8 @@ def transform_function(examples, processor, is_training=True):
         img = img.convert("RGB")
         
         # Apply data augmentation for training only
-        if is_training:
-            augmentation = get_augmentation_transforms()
+        if is_training and augmentation_strength != "none":
+            augmentation = get_augmentation_transforms(augmentation_strength, image_size)
             img = augmentation(img)
         
         # Use processor for final preprocessing (resize, normalize)
@@ -177,7 +221,11 @@ def signal_handler(sig, frame):
         sys.exit(1)
 
 def train_model(data_dir, output_dir, model_name="google/efficientnet-b0", 
-                batch_size=16, num_epochs=50, learning_rate=3e-4):
+                batch_size=16, num_epochs=50, learning_rate=3e-4,
+                early_stopping_patience=5, weight_decay=0.01, warmup_ratio=0.1,
+                label_smoothing=0.1, save_total_limit=3, augmentation_strength="medium",
+                image_size=224, scheduler="cosine", seed=42, resume_from_checkpoint=None,
+                gradient_accumulation_steps=1, mixed_precision="no", push_to_hub=False):
     """
     Train a custom bird species classifier.
     
@@ -188,6 +236,19 @@ def train_model(data_dir, output_dir, model_name="google/efficientnet-b0",
         batch_size: Training batch size (default: 16)
         num_epochs: Number of training epochs (default: 50)
         learning_rate: Initial learning rate (default: 3e-4)
+        early_stopping_patience: Early stopping patience in epochs (default: 5, 0 to disable)
+        weight_decay: Weight decay for regularization (default: 0.01)
+        warmup_ratio: Learning rate warmup ratio (default: 0.1)
+        label_smoothing: Label smoothing factor (default: 0.1)
+        save_total_limit: Maximum number of checkpoints to keep (default: 3)
+        augmentation_strength: Data augmentation intensity: none, light, medium, heavy (default: medium)
+        image_size: Input image size in pixels (default: 224)
+        scheduler: Learning rate scheduler: cosine, linear, constant (default: cosine)
+        seed: Random seed for reproducibility (default: 42)
+        resume_from_checkpoint: Path to checkpoint to resume training from (default: None)
+        gradient_accumulation_steps: Gradient accumulation steps (default: 1)
+        mixed_precision: Mixed precision training: no, fp16, bf16 (default: no)
+        push_to_hub: Push trained model to HuggingFace Hub (default: False)
     
     Returns:
         str: Path to the final trained model
@@ -195,6 +256,14 @@ def train_model(data_dir, output_dir, model_name="google/efficientnet-b0",
     from pathlib import Path
     from datetime import datetime
     from vogel_model_trainer.i18n import _
+    import random
+    
+    # Set random seeds for reproducibility
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
     
     # Register signal handler
     signal.signal(signal.SIGINT, signal_handler)
@@ -247,13 +316,20 @@ def train_model(data_dir, output_dir, model_name="google/efficientnet-b0",
     
     # Apply transforms
     print(_('train_applying_transforms'))
+    print(_('train_augmentation_strength', strength=augmentation_strength))
+    print(_('train_image_size', size=image_size))
+    
     dataset["train"] = dataset["train"].map(
-        lambda x: transform_function(x, processor, is_training=True),
+        lambda x: transform_function(x, processor, is_training=True, 
+                                    augmentation_strength=augmentation_strength,
+                                    image_size=image_size),
         batched=True,
         remove_columns=["image"]
     )
     dataset["validation"] = dataset["validation"].map(
-        lambda x: transform_function(x, processor, is_training=False),
+        lambda x: transform_function(x, processor, is_training=False,
+                                    augmentation_strength="none",
+                                    image_size=image_size),
         batched=True,
         remove_columns=["image"]
     )
@@ -268,9 +344,9 @@ def train_model(data_dir, output_dir, model_name="google/efficientnet-b0",
         num_train_epochs=num_epochs,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
-        warmup_ratio=0.1,
+        warmup_ratio=warmup_ratio,
         learning_rate=learning_rate,
-        weight_decay=0.01,
+        weight_decay=weight_decay,
         logging_dir=str(model_output_dir / "logs"),
         logging_steps=10,
         eval_strategy="epoch",
@@ -278,12 +354,22 @@ def train_model(data_dir, output_dir, model_name="google/efficientnet-b0",
         load_best_model_at_end=True,
         metric_for_best_model="accuracy",
         greater_is_better=True,
-        save_total_limit=3,
-        push_to_hub=False,
+        save_total_limit=save_total_limit,
+        push_to_hub=push_to_hub,
         remove_unused_columns=False,
-        label_smoothing_factor=0.1,
-        lr_scheduler_type="cosine",
+        label_smoothing_factor=label_smoothing,
+        lr_scheduler_type=scheduler,
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        fp16=(mixed_precision == "fp16"),
+        bf16=(mixed_precision == "bf16"),
+        seed=seed,
     )
+    
+    # Add early stopping callback if enabled
+    callbacks = []
+    if early_stopping_patience > 0:
+        callbacks.append(EarlyStoppingCallback(early_stopping_patience=early_stopping_patience))
+        print(_('train_early_stopping', patience=early_stopping_patience))
     
     # Trainer
     trainer = Trainer(
@@ -294,6 +380,7 @@ def train_model(data_dir, output_dir, model_name="google/efficientnet-b0",
         tokenizer=processor,
         compute_metrics=create_compute_metrics(species),
         data_collator=collate_fn,
+        callbacks=callbacks,
     )
     
     # Train
@@ -301,8 +388,15 @@ def train_model(data_dir, output_dir, model_name="google/efficientnet-b0",
     print(_('train_batch_size', size=batch_size))
     print(_('train_learning_rate', rate=learning_rate))
     print(_('train_epochs', epochs=num_epochs))
+    print(_('train_weight_decay', decay=weight_decay))
+    print(_('train_warmup_ratio', ratio=warmup_ratio))
+    print(_('train_scheduler', scheduler=scheduler))
+    if gradient_accumulation_steps > 1:
+        print(_('train_gradient_accumulation', steps=gradient_accumulation_steps))
+    if mixed_precision != "no":
+        print(_('train_mixed_precision', precision=mixed_precision))
     
-    trainer.train()
+    trainer.train(resume_from_checkpoint=resume_from_checkpoint)
     
     # Save final model
     final_model_path = model_output_dir / "final"

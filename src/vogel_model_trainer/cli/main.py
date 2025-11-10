@@ -12,6 +12,22 @@ Provides commands for:
 import argparse
 import sys
 from pathlib import Path
+from datetime import datetime
+
+
+class Tee:
+    """Redirect output to multiple streams (console and file)."""
+    def __init__(self, *files):
+        self.files = files
+    
+    def write(self, data):
+        for f in self.files:
+            f.write(data)
+            f.flush()
+    
+    def flush(self):
+        for f in self.files:
+            f.flush()
 
 
 def extract_command(args):
@@ -19,46 +35,92 @@ def extract_command(args):
     from vogel_model_trainer.core import extractor
     from vogel_model_trainer.i18n import _
     
-    print(_('cli_extracting_from', path=args.video))
-    print(_('cli_output_folder', path=args.folder))
+    # Setup logging if requested
+    log_file = None
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
     
-    if args.bird:
-        print(_('cli_species', species=args.bird))
-    if args.species_model:
-        print(_('cli_using_classifier', path=args.species_model))
+    if args.log:
+        try:
+            # Create log directory structure: /var/log/vogel-kamera-linux/YYYY/KWXX/
+            now = datetime.now()
+            year = now.strftime('%Y')
+            week = now.strftime('%V')
+            timestamp = now.strftime('%Y%m%d_%H%M%S')
+            
+            log_dir = Path(f'/var/log/vogel-kamera-linux/{year}/KW{week}')
+            log_dir.mkdir(parents=True, exist_ok=True)
+            
+            log_file_path = log_dir / f'{timestamp}_extract.log'
+            log_file = open(log_file_path, 'w', encoding='utf-8')
+            
+            # Redirect stdout and stderr to both console and file
+            sys.stdout = Tee(original_stdout, log_file)
+            sys.stderr = Tee(original_stderr, log_file)
+            
+            print(_('log_file', path=str(log_file_path)))
+            
+        except PermissionError:
+            print(f"⚠️  {_('log_permission_denied')}", file=sys.stderr)
+            print(f"   {_('log_permission_hint')}", file=sys.stderr)
+            print("   sudo mkdir -p /var/log/vogel-kamera-linux && sudo chown $USER /var/log/vogel-kamera-linux")
+            return 1
     
-    # Handle glob patterns and recursive search
-    import glob
-    from pathlib import Path
-    
-    video_files = []
-    if args.recursive:
-        # Recursive search
-        video_path = Path(args.video)
-        if video_path.is_dir():
-            for ext in ['*.mp4', '*.avi', '*.mov', '*.mkv']:
-                video_files.extend(video_path.rglob(ext))
+    try:
+        print(_('cli_extracting_from', path=args.video))
+        print(_('cli_output_folder', path=args.folder))
+        
+        if args.bird:
+            print(_('cli_species', species=args.bird))
+        if args.species_model:
+            print(_('cli_using_classifier', path=args.species_model))
+        
+        # Handle glob patterns and recursive search
+        import glob
+        from pathlib import Path
+        
+        video_files = []
+        if args.recursive:
+            # Recursive search
+            video_path = Path(args.video)
+            if video_path.is_dir():
+                for ext in ['*.mp4', '*.avi', '*.mov', '*.mkv']:
+                    video_files.extend(video_path.rglob(ext))
+            else:
+                video_files = [args.video]
         else:
-            video_files = [args.video]
-    else:
-        # Glob pattern or single file
-        matches = glob.glob(args.video, recursive=False)
-        video_files = matches if matches else [args.video]
+            # Glob pattern or single file
+            matches = glob.glob(args.video, recursive=False)
+            video_files = matches if matches else [args.video]
+        
+        # Process each video file
+        for video_file in video_files:
+            print(_('cli_processing_video', path=video_file))
+            extractor.extract_birds_from_video(
+                video_path=str(video_file),
+                output_dir=args.folder,
+                bird_species=args.bird,
+                detection_model=args.detection_model,
+                species_model=args.species_model,
+                threshold=args.threshold,
+                sample_rate=args.sample_rate,
+                target_image_size=args.image_size,
+                species_threshold=args.species_threshold,
+                max_detections=args.max_detections,
+                min_box_size=args.min_box_size,
+                max_box_size=args.max_box_size,
+                quality=args.quality,
+                skip_blurry=args.skip_blurry,
+                deduplicate=args.deduplicate,
+                similarity_threshold=args.similarity_threshold
+            )
     
-    # Process each video file
-    for video_file in video_files:
-        print(_('cli_processing_video', path=video_file))
-        extractor.extract_birds_from_video(
-            video_path=str(video_file),
-            output_dir=args.folder,
-            bird_species=args.bird,
-            detection_model=args.detection_model,
-            species_model=args.species_model,
-            threshold=args.threshold,
-            sample_rate=args.sample_rate,
-            resize_to_target=(not args.no_resize),
-            species_threshold=args.species_threshold
-        )
+    finally:
+        # Restore original stdout/stderr and close log file
+        if log_file:
+            sys.stdout = original_stdout
+            sys.stderr = original_stderr
+            log_file.close()
 
 
 def organize_command(args):
@@ -82,18 +144,71 @@ def train_command(args):
     from vogel_model_trainer.core import trainer
     from vogel_model_trainer.i18n import _
     
-    print(_('cli_training_model', path=args.data))
-    print(_('cli_output_directory', path=args.output))
+    # Setup logging if requested
+    log_file = None
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
     
-    # Call the training function
-    trainer.train_model(
-        data_dir=args.data,
-        output_dir=args.output,
-        model_name=args.model,
-        batch_size=args.batch_size,
-        num_epochs=args.epochs,
-        learning_rate=args.learning_rate
-    )
+    if args.log:
+        try:
+            # Create log directory structure: /var/log/vogel-kamera-linux/YYYY/KWXX/
+            now = datetime.now()
+            year = now.strftime('%Y')
+            week = now.strftime('%V')
+            timestamp = now.strftime('%Y%m%d_%H%M%S')
+            
+            log_dir = Path(f'/var/log/vogel-kamera-linux/{year}/KW{week}')
+            log_dir.mkdir(parents=True, exist_ok=True)
+            
+            log_file_path = log_dir / f'{timestamp}_train.log'
+            log_file = open(log_file_path, 'w', encoding='utf-8')
+            
+            # Redirect stdout and stderr to both console and file
+            sys.stdout = Tee(original_stdout, log_file)
+            sys.stderr = Tee(original_stderr, log_file)
+            
+            print(_('log_file', path=str(log_file_path)))
+            
+        except PermissionError:
+            print(f"⚠️  {_('log_permission_denied')}", file=sys.stderr)
+            print(f"   {_('log_permission_hint')}", file=sys.stderr)
+            print("   sudo mkdir -p /var/log/vogel-kamera-linux && sudo chown $USER /var/log/vogel-kamera-linux")
+            return 1
+    
+    try:
+        print(_('cli_training_model', path=args.data))
+        print(_('cli_output_directory', path=args.output))
+        
+        # Call the training function
+        trainer.train_model(
+            data_dir=args.data,
+            output_dir=args.output,
+            model_name=args.model,
+            batch_size=args.batch_size,
+            num_epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            early_stopping_patience=args.early_stopping_patience,
+            weight_decay=args.weight_decay,
+            warmup_ratio=args.warmup_ratio,
+            label_smoothing=args.label_smoothing,
+            save_total_limit=args.save_total_limit,
+            augmentation_strength=args.augmentation_strength,
+            image_size=args.image_size,
+            scheduler=args.scheduler,
+            seed=args.seed,
+            resume_from_checkpoint=args.resume_from_checkpoint,
+            gradient_accumulation_steps=args.gradient_accumulation_steps,
+            mixed_precision=args.mixed_precision,
+            push_to_hub=args.push_to_hub
+        )
+    
+    finally:
+        # Restore original stdout/stderr and close log file
+        if log_file:
+            sys.stdout = original_stdout
+            sys.stderr = original_stderr
+            log_file.close()
+
 
 
 def test_command(args):
@@ -108,6 +223,23 @@ def test_command(args):
         data_dir=args.data,
         image_path=args.image
     )
+
+
+def deduplicate_command(args):
+    """Execute the deduplicate command."""
+    from vogel_model_trainer.core import deduplicator
+    
+    # Run deduplication
+    stats = deduplicator.deduplicate_dataset(
+        data_dir=args.data_dir,
+        similarity_threshold=args.threshold,
+        hash_method=args.method,
+        mode=args.mode,
+        keep=args.keep,
+        recursive=args.recursive
+    )
+    
+    return 0
 
 
 def main():
@@ -183,9 +315,10 @@ For more information, visit:
         help="Path to custom species classifier for automatic sorting"
     )
     extract_parser.add_argument(
-        "--no-resize",
-        action="store_true",
-        help="Keep original image size instead of resizing to 224x224px"
+        "--image-size",
+        type=int,
+        default=224,
+        help="Target image size in pixels (default: 224, use 0 for original size)"
     )
     extract_parser.add_argument(
         "--detection-model",
@@ -211,9 +344,54 @@ For more information, visit:
         help="Analyze every Nth frame (default: 3)"
     )
     extract_parser.add_argument(
+        "--max-detections",
+        type=int,
+        default=10,
+        help="Maximum number of bird detections per frame (default: 10)"
+    )
+    extract_parser.add_argument(
+        "--min-box-size",
+        type=int,
+        default=50,
+        help="Minimum bounding box size in pixels (default: 50)"
+    )
+    extract_parser.add_argument(
+        "--max-box-size",
+        type=int,
+        default=800,
+        help="Maximum bounding box size in pixels (default: 800)"
+    )
+    extract_parser.add_argument(
+        "--quality",
+        type=int,
+        default=95,
+        help="JPEG quality for saved images 1-100 (default: 95)"
+    )
+    extract_parser.add_argument(
+        "--skip-blurry",
+        action="store_true",
+        help="Skip blurry/out-of-focus images (experimental)"
+    )
+    extract_parser.add_argument(
+        "--deduplicate",
+        action="store_true",
+        help="Skip duplicate/similar images using perceptual hashing"
+    )
+    extract_parser.add_argument(
+        "--similarity-threshold",
+        type=int,
+        default=5,
+        help="Similarity threshold for duplicates - Hamming distance 0-64, lower=stricter (default: 5)"
+    )
+    extract_parser.add_argument(
         "--recursive", "-r",
         action="store_true",
         help="Search directories recursively for video files"
+    )
+    extract_parser.add_argument(
+        "--log",
+        action="store_true",
+        help="Save console output to log file in /var/log/vogel-kamera-linux/YYYY/KWXX/"
     )
     extract_parser.set_defaults(func=extract_command)
     
@@ -278,6 +456,88 @@ For more information, visit:
         default=2e-4,
         help="Learning rate (default: 2e-4)"
     )
+    train_parser.add_argument(
+        "--early-stopping-patience",
+        type=int,
+        default=5,
+        help="Early stopping patience in epochs (default: 5, 0 to disable)"
+    )
+    train_parser.add_argument(
+        "--weight-decay",
+        type=float,
+        default=0.01,
+        help="Weight decay for regularization (default: 0.01)"
+    )
+    train_parser.add_argument(
+        "--warmup-ratio",
+        type=float,
+        default=0.1,
+        help="Learning rate warmup ratio (default: 0.1)"
+    )
+    train_parser.add_argument(
+        "--label-smoothing",
+        type=float,
+        default=0.1,
+        help="Label smoothing factor (default: 0.1, 0 to disable)"
+    )
+    train_parser.add_argument(
+        "--save-total-limit",
+        type=int,
+        default=3,
+        help="Maximum number of checkpoints to keep (default: 3)"
+    )
+    train_parser.add_argument(
+        "--augmentation-strength",
+        choices=["none", "light", "medium", "heavy"],
+        default="medium",
+        help="Data augmentation intensity (default: medium)"
+    )
+    train_parser.add_argument(
+        "--image-size",
+        type=int,
+        default=224,
+        help="Input image size in pixels (default: 224)"
+    )
+    train_parser.add_argument(
+        "--scheduler",
+        choices=["cosine", "linear", "constant"],
+        default="cosine",
+        help="Learning rate scheduler type (default: cosine)"
+    )
+    train_parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for reproducibility (default: 42)"
+    )
+    train_parser.add_argument(
+        "--resume-from-checkpoint",
+        type=str,
+        default=None,
+        help="Path to checkpoint to resume training from"
+    )
+    train_parser.add_argument(
+        "--gradient-accumulation-steps",
+        type=int,
+        default=1,
+        help="Gradient accumulation steps (default: 1)"
+    )
+    train_parser.add_argument(
+        "--mixed-precision",
+        choices=["no", "fp16", "bf16"],
+        default="no",
+        help="Mixed precision training (default: no)"
+    )
+    train_parser.add_argument(
+        "--push-to-hub",
+        action="store_true",
+        help="Push trained model to HuggingFace Hub"
+    )
+    train_parser.add_argument(
+        "--log",
+        action="store_true",
+        help="Save console output to log file in /var/log/vogel-kamera-linux/YYYY/KWXX/"
+    )
     train_parser.set_defaults(func=train_command)
     
     # ========== TEST COMMAND ==========
@@ -299,6 +559,47 @@ For more information, visit:
         help="Path to single image for testing"
     )
     test_parser.set_defaults(func=test_command)
+    
+    # ========== DEDUPLICATE COMMAND ==========
+    deduplicate_parser = subparsers.add_parser(
+        "deduplicate",
+        help="Find and remove duplicate images from dataset",
+        description="Use perceptual hashing to detect and remove duplicate/similar images"
+    )
+    deduplicate_parser.add_argument(
+        "data_dir",
+        help="Directory containing images to deduplicate"
+    )
+    deduplicate_parser.add_argument(
+        "--threshold",
+        type=int,
+        default=5,
+        help="Similarity threshold - Hamming distance 0-64, lower=stricter (default: 5)"
+    )
+    deduplicate_parser.add_argument(
+        "--method",
+        choices=["phash", "dhash", "whash", "average_hash"],
+        default="phash",
+        help="Perceptual hash method (default: phash - recommended)"
+    )
+    deduplicate_parser.add_argument(
+        "--mode",
+        choices=["report", "delete", "move"],
+        default="report",
+        help="Action: report (show only), delete (remove), move (to duplicates/) - default: report"
+    )
+    deduplicate_parser.add_argument(
+        "--keep",
+        choices=["first", "largest"],
+        default="first",
+        help="Which duplicate to keep: first (chronological) or largest (file size) - default: first"
+    )
+    deduplicate_parser.add_argument(
+        "--recursive", "-r",
+        action="store_true",
+        help="Search recursively through subdirectories"
+    )
+    deduplicate_parser.set_defaults(func=deduplicate_command)
     
     # Parse arguments and execute command
     args = parser.parse_args()

@@ -15,6 +15,7 @@ from PIL import Image
 from transformers import AutoImageProcessor, AutoModelForImageClassification
 import torch
 import glob
+import imagehash
 
 # Import i18n for translations
 from vogel_model_trainer.i18n import _
@@ -27,8 +28,11 @@ TARGET_IMAGE_SIZE = 224  # Optimal size for EfficientNet-B0 training
 
 def extract_birds_from_video(video_path, output_dir, bird_species=None, 
                              detection_model=None, species_model=None,
-                             threshold=None, sample_rate=None, resize_to_target=True,
-                             species_threshold=None, target_class=14):
+                             threshold=None, sample_rate=None, target_image_size=224,
+                             species_threshold=None, target_class=14,
+                             max_detections=10, min_box_size=50, max_box_size=800,
+                             quality=95, skip_blurry=False,
+                             deduplicate=False, similarity_threshold=5):
     """
     Extract bird crops from video and save as images
     
@@ -40,14 +44,25 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
         species_model: Custom species classifier model path for automatic sorting
         threshold: Detection confidence threshold (default: 0.5 for high quality)
         sample_rate: Analyze every Nth frame (default: 3)
-        resize_to_target: Resize images to 224x224 for optimal training (default: True)
+        target_image_size: Target image size in pixels (default: 224, 0 for original)
         species_threshold: Minimum confidence for species classification (default: None, no filter)
         target_class: COCO class for bird (14)
+        max_detections: Maximum number of detections per frame (default: 10)
+        min_box_size: Minimum bounding box size in pixels (default: 50)
+        max_box_size: Maximum bounding box size in pixels (default: 800)
+        quality: JPEG quality 1-100 (default: 95)
+        skip_blurry: Skip blurry images (default: False)
+        deduplicate: Skip duplicate/similar images (default: False)
+        similarity_threshold: Hamming distance threshold for duplicates 0-64 (default: 5)
     """
     # Use defaults if not specified
     detection_model = detection_model or DEFAULT_MODEL
     threshold = threshold if threshold is not None else DEFAULT_THRESHOLD
     sample_rate = sample_rate if sample_rate is not None else DEFAULT_SAMPLE_RATE
+    resize_to_target = (target_image_size > 0)  # If 0, keep original size
+
+        # Determine if we should resize
+    resize_to_target = (target_image_size > 0)
     
     # Load species classifier if provided
     classifier = None
@@ -79,7 +94,25 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
     print(_('detection_threshold', threshold=threshold))
     if species_threshold is not None:
         print(_('species_threshold', threshold=species_threshold))
-    print(_('image_size', size=TARGET_IMAGE_SIZE) if resize_to_target else _('image_size_original'))
+    
+    if resize_to_target:
+        print(_('image_size', size=target_image_size))
+    else:
+        print(_('image_size_original'))
+    
+    # Print additional filter settings
+    if max_detections < 999:
+        print(_('max_detections_per_frame', max=max_detections))
+    if min_box_size > 0:
+        print(_('min_box_size_filter', size=min_box_size))
+    if max_box_size < 9999:
+        print(_('max_box_size_filter', size=max_box_size))
+    if quality < 95:
+        print(_('jpeg_quality_filter', quality=quality))
+    if skip_blurry:
+        print(_('blur_detection_filter'))
+    if deduplicate:
+        print(_('dedup_filter', threshold=similarity_threshold))
     
     # Determine output mode
     if species_model:
@@ -101,8 +134,12 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
     bird_count = 0  # Successfully exported birds
     detected_count = 0  # Total detected birds (including skipped)
     skipped_count = 0  # Birds skipped due to threshold
+    duplicate_count = 0  # Birds skipped due to duplication
     species_counts = {}
     frame_num = 0
+    
+    # Initialize hash cache for deduplication
+    hash_cache = {} if deduplicate else None
     
     try:
         while True:
@@ -119,6 +156,7 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
             results = model(frame, verbose=False)
             
             # Extract birds
+            detection_in_frame = 0  # Track detections per frame
             for result in results:
                 boxes = result.boxes
                 for box in boxes:
@@ -131,6 +169,22 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                         xyxy = box.xyxy[0].cpu().numpy()
                         x1, y1, x2, y2 = int(xyxy[0]), int(xyxy[1]), int(xyxy[2]), int(xyxy[3])
                         
+                        # Calculate box size
+                        box_width = x2 - x1
+                        box_height = y2 - y1
+                        box_size = max(box_width, box_height)
+                        
+                        # Filter by box size
+                        if box_size < min_box_size:
+                            continue  # Too small, likely distant bird
+                        if box_size > max_box_size:
+                            continue  # Too large, likely false positive
+                        
+                        # Limit detections per frame
+                        if detection_in_frame >= max_detections:
+                            break
+                        detection_in_frame += 1
+                        
                         # Ensure coordinates are within frame
                         h, w = frame.shape[:2]
                         x1, y1 = max(0, x1), max(0, y1)
@@ -140,6 +194,12 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                         bird_crop = frame[y1:y2, x1:x2]
                         
                         if bird_crop.size > 0:
+                            # Skip blurry images if requested
+                            if skip_blurry:
+                                blur_score = cv2.Laplacian(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2GRAY), cv2.CV_64F).var()
+                                if blur_score < 100:  # Threshold for blur detection
+                                    continue
+                            
                             # Count all detected birds
                             detected_count += 1
                             
@@ -173,7 +233,30 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                                 print(_('bird_skipped', species=species_name, conf=species_conf, threshold=species_threshold, frame=frame_num))
                                 continue
                             
-                            # Only count birds that passed the threshold filter
+                            # Check for duplicates if enabled
+                            if deduplicate:
+                                bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2RGB))
+                                img_hash = imagehash.phash(bird_pil)
+                                
+                                # Check if similar image already exists
+                                is_duplicate = False
+                                similar_to = None
+                                min_distance = float('inf')
+                                
+                                for existing_path, existing_hash in hash_cache.items():
+                                    distance = img_hash - existing_hash
+                                    if distance <= similarity_threshold:
+                                        is_duplicate = True
+                                        similar_to = Path(existing_path).name
+                                        min_distance = distance
+                                        break
+                                
+                                if is_duplicate:
+                                    duplicate_count += 1
+                                    print(_('dedup_skipped_duplicate', filename=similar_to, distance=min_distance))
+                                    continue
+                            
+                            # Only count birds that passed all filters
                             bird_count += 1
                             
                             # Create species subdirectory if needed
@@ -197,22 +280,35 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                             
                             # Resize to target size for optimal training
                             if resize_to_target:
-                                bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2RGB))
+                                if not deduplicate:  # Only create if not already created for dedup check
+                                    bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2RGB))
                                 # Resize maintaining aspect ratio with padding (better quality than distortion)
-                                bird_pil.thumbnail((TARGET_IMAGE_SIZE, TARGET_IMAGE_SIZE), Image.Resampling.LANCZOS)
+                                bird_pil.thumbnail((target_image_size, target_image_size), Image.Resampling.LANCZOS)
                                 
                                 # Create square image with padding
-                                new_img = Image.new('RGB', (TARGET_IMAGE_SIZE, TARGET_IMAGE_SIZE), (0, 0, 0))
+                                new_img = Image.new('RGB', (target_image_size, target_image_size), (0, 0, 0))
                                 # Center the image
-                                x_offset = (TARGET_IMAGE_SIZE - bird_pil.width) // 2
-                                y_offset = (TARGET_IMAGE_SIZE - bird_pil.height) // 2
+                                x_offset = (target_image_size - bird_pil.width) // 2
+                                y_offset = (target_image_size - bird_pil.height) // 2
                                 new_img.paste(bird_pil, (x_offset, y_offset))
                                 
                                 # Save with PIL (better quality)
-                                new_img.save(str(save_path), 'JPEG', quality=95)
+                                new_img.save(str(save_path), 'JPEG', quality=quality)
+                                
+                                # Add to hash cache if deduplication is enabled
+                                if deduplicate:
+                                    # Recompute hash for saved image (in case resizing changed it)
+                                    saved_hash = imagehash.phash(new_img)
+                                    hash_cache[str(save_path)] = saved_hash
                             else:
                                 # Save original size with OpenCV
-                                cv2.imwrite(str(save_path), bird_crop)
+                                cv2.imwrite(str(save_path), bird_crop, [cv2.IMWRITE_JPEG_QUALITY, quality])
+                                
+                                # Add to hash cache if deduplication is enabled
+                                if deduplicate:
+                                    if not 'bird_pil' in locals():  # Only create if not already created
+                                        bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2RGB))
+                                    hash_cache[str(save_path)] = img_hash
                             
                             if species_name:
                                 print(_('bird_extracted', count=bird_count, species=species_name, conf=species_conf, frame=frame_num))
@@ -240,6 +336,14 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
     # Show skipped count if threshold was applied
     if species_threshold is not None and skipped_count > 0:
         print(_('skipped_birds_total', count=skipped_count, threshold=species_threshold))
+    
+    # Show deduplication statistics if enabled
+    if deduplicate and duplicate_count > 0:
+        total_checked = bird_count + duplicate_count
+        percent = (duplicate_count / total_checked * 100) if total_checked > 0 else 0
+        print(_('dedup_stats'))
+        print(_('dedup_stats_checked', count=total_checked))
+        print(_('dedup_stats_skipped', count=duplicate_count, percent=percent))
     
     # Show species breakdown if applicable
     if species_counts:
