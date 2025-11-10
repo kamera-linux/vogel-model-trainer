@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2025-11-10
+
+### Fixed
+- **Cross-Session Deduplication**: Fixed bug where `--deduplicate` only worked within a single extraction session
+  - Now pre-loads existing images from output directory into hash cache at startup
+  - Prevents re-extracting identical birds when running the same command multiple times
+  - Displays loading progress: "Lade existierende Bilder für Deduplizierung..." and "X existierende Bilder in Hash-Cache geladen"
+
 ## [0.1.6] - 2025-11-10
 
 ### Added

@@ -141,6 +141,21 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
     # Initialize hash cache for deduplication
     hash_cache = {} if deduplicate else None
     
+    # Pre-load existing images into hash cache for cross-session deduplication
+    if deduplicate:
+        print(_('dedup_loading_existing'))
+        existing_images = list(output_path.rglob("*.jpg")) + list(output_path.rglob("*.jpeg")) + list(output_path.rglob("*.png"))
+        for img_path in existing_images:
+            try:
+                img = Image.open(img_path)
+                img_hash = imagehash.phash(img)
+                hash_cache[str(img_path)] = img_hash
+            except Exception as e:
+                # Skip corrupted images
+                pass
+        if len(hash_cache) > 0:
+            print(_('dedup_loaded_existing', count=len(hash_cache)))
+    
     try:
         while True:
             ret, frame = cap.read()

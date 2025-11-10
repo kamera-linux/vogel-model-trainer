@@ -201,6 +201,8 @@ TRANSLATIONS = {
         'dedup_stats': '\n📊 Deduplication Statistics:',
         'dedup_stats_checked': '   Checked: {count} images',
         'dedup_stats_skipped': '   Skipped: {count} duplicates ({percent:.1f}%)',
+        'dedup_loading_existing': '   🔄 Loading existing images for deduplication...',
+        'dedup_loaded_existing': '   ✅ Loaded {count} existing images into hash cache',
         
         # General
         'error': 'Error',
@@ -400,6 +402,8 @@ TRANSLATIONS = {
         'dedup_stats': '\n📊 Deduplizierungs-Statistiken:',
         'dedup_stats_checked': '   Geprüft: {count} Bilder',
         'dedup_stats_skipped': '   Übersprungen: {count} Duplikate ({percent:.1f}%)',
+        'dedup_loading_existing': '   🔄 Lade existierende Bilder für Deduplizierung...',
+        'dedup_loaded_existing': '   ✅ {count} existierende Bilder in Hash-Cache geladen',
         
         # General
         'error': 'Fehler',
@@ -599,6 +603,8 @@ TRANSLATIONS = {
         'dedup_stats': '\n📊 重複削除統計：',
         'dedup_stats_checked': '   チェック済み：{count}枚の画像',
         'dedup_stats_skipped': '   スキップ：{count}枚の重複（{percent:.1f}%）',
+        'dedup_loading_existing': '   🔄 重複削除のため既存画像を読み込み中...',
+        'dedup_loaded_existing': '   ✅ {count}枚の既存画像をハッシュキャッシュに読み込みました',
         
         # General
         'error': 'エラー',
