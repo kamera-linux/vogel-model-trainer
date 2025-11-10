@@ -332,6 +332,8 @@ def train_model(data_dir, output_dir, model_name="google/efficientnet-b0",
 
 def main():
     """Main training function (for direct script execution)."""
+    from vogel_model_trainer.i18n import _
+    
     try:
         train_model(
             data_dir=DATA_DIR,
@@ -342,7 +344,7 @@ def main():
             learning_rate=LEARNING_RATE
         )
     except Exception as e:
-        print(f"\n❌ Fehler beim Training: {e}")
+        print(_('train_error', error=e))
         import traceback
         traceback.print_exc()
         return 1

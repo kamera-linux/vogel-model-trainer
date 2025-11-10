@@ -144,6 +144,7 @@ TRANSLATIONS = {
         'train_waiting_clean_exit': 'Waiting for clean exit of current step...',
         'train_force_exit_hint': '(Press Ctrl+C again for immediate exit)',
         'train_force_exit': '\n⚠️  Immediate exit forced!',
+        'train_error': '\n❌ Training error: {error}',
         
         # Testing
         'test_loading_model': '🤖 Loading model: {path}',
@@ -300,6 +301,7 @@ TRANSLATIONS = {
         'train_waiting_clean_exit': 'Warte auf sauberes Beenden des aktuellen Schritts...',
         'train_force_exit_hint': '(Drücke Strg+C erneut für sofortiges Beenden)',
         'train_force_exit': '\n⚠️  Sofortiges Beenden erzwungen!',
+        'train_error': '\n❌ Fehler beim Training: {error}',
         
         # Testing
         'test_loading_model': '🤖 Lade Modell: {path}',
@@ -456,6 +458,7 @@ TRANSLATIONS = {
         'train_waiting_clean_exit': '現在のステップのクリーンな終了を待っています...',
         'train_force_exit_hint': '（Ctrl+Cを再度押すと即座に終了）',
         'train_force_exit': '\n⚠️  即座の終了を強制！',
+        'train_error': '\n❌ トレーニングエラー：{error}',
         
         # Testing
         'test_loading_model': '🤖 モデルを読み込み中：{path}',
