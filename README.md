@@ -33,6 +33,34 @@ A specialized toolkit for creating high-accuracy bird species classifiers tailor
 - 🌍 **Full i18n Support** - English, German, Japanese translations
 - 📈 **Per-Species Metrics** - Detailed accuracy breakdown by species
 
+## 🤖 Pre-trained Models
+
+**German Garden Birds Classifier** - Ready to use!
+
+We provide a pre-trained model on Hugging Face that can classify 8 common German garden bird species with 100% validation accuracy:
+
+🔗 **[kamera-linux/german-bird-classifier](https://huggingface.co/kamera-linux/german-bird-classifier)**
+
+**Supported Species:**
+- Blaumeise (Blue Tit)
+- Grünling (European Greenfinch)
+- Haussperling (House Sparrow)
+- Kernbeißer (Hawfinch)
+- Kleiber (Eurasian Nuthatch)
+- Kohlmeise (Great Tit)
+- Rotkehlchen (European Robin)
+- Sumpfmeise (Marsh Tit)
+
+**Usage with extraction:**
+```bash
+vogel-trainer extract --folder ~/bird-data \
+  --species-model kamera-linux/german-bird-classifier \
+  --sample-rate 20 --skip-blurry --deduplicate \
+  video.mp4
+```
+
+The model will automatically classify detected birds during extraction!
+
 ---
 
 ## 🚀 Quick Start

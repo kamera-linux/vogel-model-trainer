@@ -33,6 +33,34 @@ Ein spezialisiertes Toolkit zum Erstellen von hochgenauen Vogelarten-Klassifizie
 - 🌍 **Vollständige i18n-Unterstützung** - Englisch, Deutsch, Japanisch
 - 📈 **Pro-Art-Metriken** - Detaillierte Genauigkeits-Aufschlüsselung pro Vogelart
 
+## 🤖 Vortrainierte Modelle
+
+**Deutscher Gartenvögel-Klassifikator** - Sofort einsatzbereit!
+
+Wir stellen ein vortrainiertes Modell auf Hugging Face bereit, das 8 häufige deutsche Gartenvögel mit 100% Validierungsgenauigkeit klassifizieren kann:
+
+🔗 **[kamera-linux/german-bird-classifier](https://huggingface.co/kamera-linux/german-bird-classifier)**
+
+**Unterstützte Arten:**
+- Blaumeise
+- Grünling (Grünfink)
+- Haussperling
+- Kernbeißer
+- Kleiber
+- Kohlmeise
+- Rotkehlchen
+- Sumpfmeise
+
+**Verwendung bei der Extraktion:**
+```bash
+vogel-trainer extract --folder ~/vogel-daten \
+  --species-model kamera-linux/german-bird-classifier \
+  --sample-rate 20 --skip-blurry --deduplicate \
+  video.mp4
+```
+
+Das Modell klassifiziert erkannte Vögel automatisch während der Extraktion!
+
 ---
 
 ## 🚀 Schnellstart
