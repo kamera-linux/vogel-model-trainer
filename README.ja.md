@@ -38,15 +38,16 @@
 #### 推奨: 仮想環境を使用
 
 ```bash
+# 必要に応じてvenvをインストール（Debian/Ubuntu）
+sudo apt install python3-venv
+
 # 仮想環境を作成
-python3 -m venv venv
+python3 -m venv ~/venv-vogel
 
-# 仮想環境を有効化
-source venv/bin/activate  # Linux/Macの場合
-# または
-venv\Scripts\activate     # Windowsの場合
+# 有効化
+source ~/venv-vogel/bin/activate  # Windows: ~/venv-vogel\Scripts\activate
 
-# vogel-model-trainerをインストール
+# パッケージをインストール
 pip install vogel-model-trainer
 ```
 
@@ -61,6 +62,18 @@ git clone https://github.com/kamera-linux/vogel-model-trainer.git
 cd vogel-model-trainer
 pip install -e .
 ```
+
+### 🎥 ビデオチュートリアル
+
+ステップバイステップのビデオガイドでvogel-model-trainerを学ぶ：
+
+- **はじめに** - インストールと最初の抽出（5分）
+- **鳥の抽出** - 品質フィルター、重複削除、種分類（10分）
+- **データセット整理** - Train/Val分割、クラスバランス管理（8分）**v0.1.8の新機能**
+- **モデルトレーニング** - カスタム分類器のトレーニングとパラメータ（12分）
+- **テストと評価** - モデルテストとパフォーマンス分析（7分）
+
+📺 *ビデオチュートリアルは近日公開！*
 
 ### 基本的なワークフロー
 
@@ -180,13 +193,40 @@ vogel-trainer extract ~/Videos/ \
 vogel-trainer organize ~/training-data/ -o ~/organized-data/
 ```
 
+**🆕 v0.1.8の新機能: クラスバランス管理**
+
+```bash
+# クラスあたり最大100枚の画像に制限、15%の不均衡許容
+vogel-trainer organize ~/training-data/ -o ~/organized-data/ --max-images-per-class 100 --tolerance 15
+
+# カスタム制限と厳格な許容値
+vogel-trainer organize ~/training-data/ -o ~/organized-data/ --max-images-per-class 50 --tolerance 10
+```
+
+**新しいパラメータ:**
+- `--max-images-per-class`: クラスあたりの最大画像数（デフォルト: 制限なし）
+  - この数を超える画像は自動的に削除されます
+  - 大規模なクラスのサイズを管理し、データセットのバランスを向上させます
+  
+- `--tolerance`: 許容可能なクラス不均衡の割合（デフォルト: 15）
+  - 0-10%: ✅ 良好な均衡（チェックマーク）
+  - 10-15%: ⚠️ 警告（データセットはまだ使用可能）
+  - >15%: ❌ エラー（より多くのデータが推奨）
+
+**例の出力:**
+```
+最小画像数を持つクラス: coal-tit（75枚の画像）
+最大画像数を持つクラス: great-tit（100枚の画像）
+クラス間の不均衡: 14.9% ⚠️ 警告: クラス不均衡が10-15%です
+```
+
 80/20のトレーニング/検証分割を作成:
 ```
 organized/
 ├── train/
-│   ├── great-tit/
-│   ├── blue-tit/
-│   └── robin/
+│   ├── great-tit/      # 最大100枚まで
+│   ├── blue-tit/       # 最大100枚まで
+│   └── robin/          # 最大100枚まで
 └── val/
     ├── great-tit/
     ├── blue-tit/

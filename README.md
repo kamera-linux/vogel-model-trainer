@@ -42,15 +42,16 @@ A specialized toolkit for creating high-accuracy bird species classifiers tailor
 #### Recommended: Using Virtual Environment
 
 ```bash
+# Install venv if needed (Debian/Ubuntu)
+sudo apt install python3-venv
+
 # Create virtual environment
-python3 -m venv venv
+python3 -m venv ~/venv-vogel
 
-# Activate virtual environment
-source venv/bin/activate  # On Linux/Mac
-# or
-venv\Scripts\activate     # On Windows
+# Activate it
+source ~/venv-vogel/bin/activate  # On Windows: ~/venv-vogel\Scripts\activate
 
-# Install vogel-model-trainer
+# Install package
 pip install vogel-model-trainer
 ```
 
@@ -65,6 +66,18 @@ git clone https://github.com/kamera-linux/vogel-model-trainer.git
 cd vogel-model-trainer
 pip install -e .
 ```
+
+### 🎥 Video Tutorials
+
+Learn vogel-model-trainer with step-by-step video guides:
+
+- **Getting Started** - Installation and first extraction (5 min)
+- **Extracting Birds** - Quality filters, deduplication, species classification (10 min)
+- **Organizing Datasets** - Train/val splits, class balance management (8 min) **NEW in v0.1.8**
+- **Training Models** - Custom classifier training and parameters (12 min)
+- **Testing & Evaluation** - Model testing and performance analysis (7 min)
+
+📺 *Video tutorials coming soon!*
 
 ### Basic Workflow
 
@@ -237,8 +250,21 @@ vogel-trainer extract ~/Videos/great-tit.mp4 \
 ### 2. Organize Dataset
 
 ```bash
+# Basic organization (80/20 split)
 vogel-trainer organize ~/training-data/ -o ~/organized-data/
+
+# With class balance control (NEW in v0.1.8)
+vogel-trainer organize ~/training-data/ -o ~/organized-data/ \
+  --max-images-per-class 100 \
+  --tolerance 15.0
 ```
+
+**Class Balance Features:**
+- `--max-images-per-class N`: Limit to N images per class, delete excess
+- `--tolerance N`: Maximum allowed imbalance % (default: 15)
+  - < 10%: ✅ Perfect
+  - 10-15%: ⚠️ Warning
+  - > 15%: ❌ Error with recommendations
 
 Creates an 80/20 train/validation split:
 ```

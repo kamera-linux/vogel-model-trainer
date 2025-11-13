@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8] - 2025-11-13
+
+### Added
+- **Class Balance Management**: New parameters for `organize` command to ensure balanced datasets
+  - `--max-images-per-class N`: Automatically limit images per class (100, 200, 300, etc.) and delete excess
+  - `--tolerance N`: Set maximum allowed class imbalance (default: 15%)
+  - Displays warnings at 10-15% imbalance, errors and exits above tolerance
+  - Shows detailed statistics: minimum, maximum, average, and affected classes
+  - Provides recommendations for improving balance
+
+- **Full Internationalization**: All new features support EN/DE/JA
+  - Complete translations for all class balance messages
+  - Consistent multilingual experience across all commands
+
+### Changed
+- **Organize Command**: Enhanced with automatic class balancing and limiting
+- **Dataset Quality**: Better control over dataset composition and balance
+
 ## [0.1.7] - 2025-11-10
 
 ### Fixed

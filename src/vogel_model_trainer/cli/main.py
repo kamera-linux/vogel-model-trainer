@@ -135,7 +135,9 @@ def organize_command(args):
     organizer.organize_dataset(
         source_dir=args.source,
         output_dir=args.output,
-        train_ratio=args.train_ratio
+        train_ratio=args.train_ratio,
+        max_images_per_class=args.max_images_per_class,
+        tolerance_percent=args.tolerance
     )
 
 
@@ -415,6 +417,18 @@ For more information, visit:
         type=float,
         default=0.8,
         help="Training set ratio (default: 0.8 = 80%%)"
+    )
+    organize_parser.add_argument(
+        "--max-images-per-class",
+        type=int,
+        default=None,
+        help="Maximum images per class (e.g., 100, 200, 300). Excess images will be deleted."
+    )
+    organize_parser.add_argument(
+        "--tolerance",
+        type=float,
+        default=15.0,
+        help="Maximum allowed class imbalance in percent (default: 15.0)"
     )
     organize_parser.set_defaults(func=organize_command)
     

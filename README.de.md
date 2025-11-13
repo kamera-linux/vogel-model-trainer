@@ -42,15 +42,16 @@ Ein spezialisiertes Toolkit zum Erstellen von hochgenauen Vogelarten-Klassifizie
 #### Empfohlen: Virtuelle Umgebung verwenden
 
 ```bash
+# Installiere venv falls nötig (Debian/Ubuntu)
+sudo apt install python3-venv
+
 # Virtuelle Umgebung erstellen
-python3 -m venv venv
+python3 -m venv ~/venv-vogel
 
-# Virtuelle Umgebung aktivieren
-source venv/bin/activate  # Auf Linux/Mac
-# oder
-venv\Scripts\activate     # Auf Windows
+# Aktivieren
+source ~/venv-vogel/bin/activate  # Windows: ~/venv-vogel\Scripts\activate
 
-# vogel-model-trainer installieren
+# Paket installieren
 pip install vogel-model-trainer
 ```
 
@@ -65,6 +66,18 @@ git clone https://github.com/kamera-linux/vogel-model-trainer.git
 cd vogel-model-trainer
 pip install -e .
 ```
+
+### 🎥 Video-Anleitungen
+
+Lerne vogel-model-trainer mit Schritt-für-Schritt Video-Anleitungen:
+
+- **Erste Schritte** - Installation und erste Extraktion (5 Min.)
+- **Vögel Extrahieren** - Qualitätsfilter, Deduplizierung, Arten-Klassifizierung (10 Min.)
+- **Datasets Organisieren** - Train/Val Splits, Class Balance Management (8 Min.) **NEU in v0.1.8**
+- **Modelle Trainieren** - Custom Classifier Training und Parameter (12 Min.)
+- **Testen & Evaluieren** - Modell-Tests und Performance-Analyse (7 Min.)
+
+📺 *Video-Tutorials kommen bald!*
 
 ### Grundlegender Workflow
 
@@ -239,8 +252,21 @@ vogel-trainer extract ~/Videos/kohlmeise.mp4 \
 ### 2. Dataset organisieren
 
 ```bash
+# Basis-Organisation (80/20 Split)
 vogel-trainer organize ~/training-data/ -o ~/organized-data/
+
+# Mit Class Balance Kontrolle (NEU in v0.1.8)
+vogel-trainer organize ~/training-data/ -o ~/organized-data/ \
+  --max-images-per-class 100 \
+  --tolerance 15.0
 ```
+
+**Class Balance Features:**
+- `--max-images-per-class N`: Limitiert auf N Bilder pro Klasse, löscht überschüssige
+- `--tolerance N`: Maximal erlaubtes Ungleichgewicht % (Standard: 15)
+  - < 10%: ✅ Perfekt
+  - 10-15%: ⚠️ Warnung
+  - > 15%: ❌ Fehler mit Empfehlungen
 
 Erstellt einen 80/20 Train/Validation Split:
 ```
