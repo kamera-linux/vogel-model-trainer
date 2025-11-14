@@ -16,6 +16,7 @@ from transformers import AutoImageProcessor, AutoModelForImageClassification
 import torch
 import glob
 import imagehash
+import numpy as np
 
 # Import i18n for translations
 from vogel_model_trainer.i18n import _
@@ -26,13 +27,69 @@ DEFAULT_SAMPLE_RATE = 3  # Check more frames for better coverage
 DEFAULT_MODEL = "yolov8n.pt"
 TARGET_IMAGE_SIZE = 224  # Optimal size for EfficientNet-B0 training
 
+def calculate_motion_quality(image):
+    """
+    Calculate motion/blur quality metrics for an image.
+    
+    Args:
+        image: BGR image (numpy array)
+        
+    Returns:
+        dict: Quality metrics including:
+            - sharpness: Laplacian variance (higher = sharper)
+            - edge_quality: Sobel gradient magnitude (higher = clearer edges)
+            - overall: Combined quality score
+    """
+    # Convert to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+    # 1. Laplacian Variance (Sharpness measure)
+    laplacian = cv2.Laplacian(gray, cv2.CV_64F)
+    laplacian_var = laplacian.var()
+    
+    # 2. Sobel Gradient Magnitude (Edge quality)
+    sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+    sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+    gradient_mag = np.sqrt(sobelx**2 + sobely**2).mean()
+    
+    # 3. Combined overall score (weighted average)
+    overall_score = laplacian_var * 0.7 + gradient_mag * 0.3
+    
+    return {
+        'sharpness': laplacian_var,
+        'edge_quality': gradient_mag,
+        'overall': overall_score
+    }
+
+def is_motion_acceptable(quality_metrics, min_sharpness=None, min_edge_quality=None):
+    """
+    Check if motion quality metrics meet minimum thresholds.
+    
+    Args:
+        quality_metrics: Dict from calculate_motion_quality()
+        min_sharpness: Minimum sharpness score (default: None = no filter)
+        min_edge_quality: Minimum edge quality score (default: None = no filter)
+        
+    Returns:
+        tuple: (is_acceptable: bool, reason: str)
+    """
+    if min_sharpness is not None and quality_metrics['sharpness'] < min_sharpness:
+        return False, 'low_sharpness'
+    
+    if min_edge_quality is not None and quality_metrics['edge_quality'] < min_edge_quality:
+        return False, 'poor_edges'
+    
+    return True, 'accepted'
+
 def extract_birds_from_video(video_path, output_dir, bird_species=None, 
                              detection_model=None, species_model=None,
                              threshold=None, sample_rate=None, target_image_size=224,
                              species_threshold=None, target_class=14,
                              max_detections=10, min_box_size=50, max_box_size=800,
                              quality=95, skip_blurry=False,
-                             deduplicate=False, similarity_threshold=5):
+                             deduplicate=False, similarity_threshold=5,
+                             min_sharpness=None, min_edge_quality=None,
+                             save_quality_report=False):
     """
     Extract bird crops from video and save as images
     
@@ -54,15 +111,15 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
         skip_blurry: Skip blurry images (default: False)
         deduplicate: Skip duplicate/similar images (default: False)
         similarity_threshold: Hamming distance threshold for duplicates 0-64 (default: 5)
+        min_sharpness: Minimum sharpness score (default: None = no filter)
+        min_edge_quality: Minimum edge quality score (default: None = no filter)
+        save_quality_report: Save detailed quality report (default: False)
     """
     # Use defaults if not specified
     detection_model = detection_model or DEFAULT_MODEL
     threshold = threshold if threshold is not None else DEFAULT_THRESHOLD
     sample_rate = sample_rate if sample_rate is not None else DEFAULT_SAMPLE_RATE
     resize_to_target = (target_image_size > 0)  # If 0, keep original size
-
-        # Determine if we should resize
-    resize_to_target = (target_image_size > 0)
     
     # Load species classifier if provided
     classifier = None
@@ -113,6 +170,10 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
         print(_('blur_detection_filter'))
     if deduplicate:
         print(_('dedup_filter', threshold=similarity_threshold))
+    if min_sharpness is not None:
+        print(_('motion_sharpness_filter', threshold=min_sharpness))
+    if min_edge_quality is not None:
+        print(_('motion_edge_filter', threshold=min_edge_quality))
     
     # Determine output mode
     if species_model:
@@ -135,8 +196,17 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
     detected_count = 0  # Total detected birds (including skipped)
     skipped_count = 0  # Birds skipped due to threshold
     duplicate_count = 0  # Birds skipped due to duplication
+    motion_rejected_count = 0  # Birds rejected due to motion/blur
     species_counts = {}
     frame_num = 0
+    
+    # Quality report statistics
+    quality_stats = {
+        'accepted': [],
+        'rejected_motion': [],
+        'rejected_blur': [],
+        'rejected_edges': []
+    } if save_quality_report else None
     
     # Initialize hash cache for deduplication
     hash_cache = {} if deduplicate else None
@@ -209,11 +279,34 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                         bird_crop = frame[y1:y2, x1:x2]
                         
                         if bird_crop.size > 0:
-                            # Skip blurry images if requested
+                            # Calculate motion quality metrics
+                            motion_quality = calculate_motion_quality(bird_crop)
+                            
+                            # Check motion quality thresholds
+                            motion_ok, motion_reason = is_motion_acceptable(
+                                motion_quality,
+                                min_sharpness=min_sharpness,
+                                min_edge_quality=min_edge_quality
+                            )
+                            
+                            if not motion_ok:
+                                motion_rejected_count += 1
+                                if save_quality_report:
+                                    if motion_reason == 'low_sharpness':
+                                        quality_stats['rejected_blur'].append(motion_quality['sharpness'])
+                                    elif motion_reason == 'poor_edges':
+                                        quality_stats['rejected_edges'].append(motion_quality['edge_quality'])
+                                continue
+                            
+                            # Skip blurry images if requested (legacy method)
                             if skip_blurry:
                                 blur_score = cv2.Laplacian(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2GRAY), cv2.CV_64F).var()
                                 if blur_score < 100:  # Threshold for blur detection
                                     continue
+                            
+                            # Store quality stats if requested
+                            if save_quality_report:
+                                quality_stats['accepted'].append(motion_quality['overall'])
                             
                             # Count all detected birds
                             detected_count += 1
@@ -359,6 +452,38 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
         print(_('dedup_stats'))
         print(_('dedup_stats_checked', count=total_checked))
         print(_('dedup_stats_skipped', count=duplicate_count, percent=percent))
+    
+    # Show motion quality rejection statistics if applicable
+    if motion_rejected_count > 0:
+        print(_('motion_rejected_stats', count=motion_rejected_count))
+    
+    # Show quality report if requested
+    if save_quality_report and quality_stats:
+        print("\n" + _('quality_report_title'))
+        print("━" * 60)
+        
+        total_processed = detected_count
+        accepted = len(quality_stats['accepted'])
+        rejected_blur = len(quality_stats['rejected_blur'])
+        rejected_edges = len(quality_stats['rejected_edges'])
+        
+        print(_('quality_report_total', count=total_processed))
+        print(_('quality_report_accepted', count=accepted, percent=accepted/total_processed*100 if total_processed > 0 else 0))
+        print(_('quality_report_rejected', count=motion_rejected_count, percent=motion_rejected_count/total_processed*100 if total_processed > 0 else 0))
+        
+        if quality_stats['accepted']:
+            avg_quality = np.mean(quality_stats['accepted'])
+            print(_('quality_report_avg_accepted', score=avg_quality))
+        
+        if quality_stats['rejected_blur']:
+            avg_blur = np.mean(quality_stats['rejected_blur'])
+            print(_('quality_report_avg_rejected_blur', score=avg_blur))
+        
+        if quality_stats['rejected_edges']:
+            avg_edges = np.mean(quality_stats['rejected_edges'])
+            print(_('quality_report_avg_rejected_edges', score=avg_edges))
+        
+        print("━" * 60)
     
     # Show species breakdown if applicable
     if species_counts:

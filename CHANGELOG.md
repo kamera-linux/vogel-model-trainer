@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9] - 2025-11-14
+
+### Added
+- **Motion Quality Filtering**: Advanced blur and motion detection for better image quality
+  - `--min-sharpness N`: Filter images by sharpness score (Laplacian variance, typical: 100-300)
+  - `--min-edge-quality N`: Filter images by edge clarity (Sobel gradient, typical: 50-150)
+  - `--save-quality-report`: Generate detailed quality statistics after extraction
+  - Automatic rejection of motion-blurred and out-of-focus images
+  - Quality metrics: sharpness, edge quality, overall score
+
+- **Quality Report**: Detailed statistics about extraction quality
+  - Total detections processed
+  - Accepted vs rejected counts and percentages
+  - Average quality scores for accepted and rejected images
+  - Breakdown by rejection reason (motion blur, poor edges)
+
+- **Full Internationalization**: All new motion quality features support EN/DE/JA
+  - Complete translations for quality filters and reports
+  - Consistent multilingual experience
+
+### Changed
+- **Extract Command**: Enhanced with motion quality analysis
+- **Image Quality**: Better automatic filtering of unusable images
+- **Fewer False Positives**: Motion-blurred birds automatically rejected
+
+### Improved
+- Reduced manual review time by automatically filtering low-quality detections
+- Better training data quality leads to more accurate models
+- Reproducible quality decisions based on quantifiable metrics
+
 ## [0.1.8] - 2025-11-13
 
 ### Added

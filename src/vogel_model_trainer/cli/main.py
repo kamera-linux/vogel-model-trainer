@@ -112,7 +112,10 @@ def extract_command(args):
                 quality=args.quality,
                 skip_blurry=args.skip_blurry,
                 deduplicate=args.deduplicate,
-                similarity_threshold=args.similarity_threshold
+                similarity_threshold=args.similarity_threshold,
+                min_sharpness=args.min_sharpness,
+                min_edge_quality=args.min_edge_quality,
+                save_quality_report=args.save_quality_report
             )
     
     finally:
@@ -384,6 +387,23 @@ For more information, visit:
         type=int,
         default=5,
         help="Similarity threshold for duplicates - Hamming distance 0-64, lower=stricter (default: 5)"
+    )
+    extract_parser.add_argument(
+        "--min-sharpness",
+        type=float,
+        default=None,
+        help="Minimum sharpness score (Laplacian variance). Typical values: 100-300. Higher = sharper required."
+    )
+    extract_parser.add_argument(
+        "--min-edge-quality",
+        type=float,
+        default=None,
+        help="Minimum edge quality score (Sobel gradient). Typical values: 50-150. Higher = clearer edges required."
+    )
+    extract_parser.add_argument(
+        "--save-quality-report",
+        action="store_true",
+        help="Save detailed quality statistics report after extraction"
     )
     extract_parser.add_argument(
         "--recursive", "-r",
