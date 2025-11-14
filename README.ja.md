@@ -52,6 +52,7 @@ Hugging Faceで、8種類の一般的なドイツの庭鳥を100%の検証精度
 vogel-trainer extract --folder ~/bird-data \
   --species-model kamera-linux/german-bird-classifier \
   --sample-rate 20 --skip-blurry --deduplicate \
+  --min-sharpness 150 --min-edge-quality 80 \
   video.mp4
 ```
 
@@ -209,11 +210,23 @@ vogel-trainer extract ~/Videos/ \
 - `--folder`: 抽出された画像のベースディレクトリ（必須）
 - `--bird`: 手動種ラベル（サブディレクトリを作成）
 - `--species-model`: 自動分類用のトレーニング済みモデルへのパス
+- `--species-threshold`: 種分類の最小信頼度（例: 0.85は85%）
 - `--threshold`: YOLO信頼度しきい値（デフォルト: 0.5）
 - `--sample-rate`: N番目のフレームごとに処理（デフォルト: 3）
 - `--detection-model`: YOLOモデルパス（デフォルト: yolov8n.pt）
-- `--no-resize`: 元の画像サイズを保持（デフォルト: 224x224にリサイズ）
+- `--image-size`: ターゲット画像サイズ（ピクセル単位、デフォルト: 224、0で元のサイズ）
+- `--max-detections`: フレームごとの最大検出数（デフォルト: 10）
+- `--min-box-size`: 最小バウンディングボックスサイズ（ピクセル単位、デフォルト: 50）
+- `--max-box-size`: 最大バウンディングボックスサイズ（ピクセル単位、デフォルト: 800）
+- `--quality`: JPEG品質 1-100（デフォルト: 95）
+- `--skip-blurry`: ぼやけた/焦点の合っていない画像をスキップ（実験的）
+- `--min-sharpness`: **NEW v0.1.9** - 最小シャープネススコア（ラプラシアン分散、一般的に100-300）
+- `--min-edge-quality`: **NEW v0.1.9** - 最小エッジ品質（ソーベル勾配、一般的に50-150）
+- `--save-quality-report`: **NEW v0.1.9** - 詳細な品質レポートを生成
+- `--deduplicate`: 重複/類似画像をスキップ（知覚ハッシュ）
+- `--similarity-threshold`: 重複のための類似度しきい値 - ハミング距離 0-64（デフォルト: 5）
 - `--recursive, -r`: ディレクトリを再帰的に検索
+- `--log`: コンソール出力をログファイルに保存（`/var/log/vogel-kamera-linux/YYYY/KWXX/`）
 
 ### 2. データセットの整理
 

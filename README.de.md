@@ -56,6 +56,7 @@ Wir stellen ein vortrainiertes Modell auf Hugging Face bereit, das 8 häufige de
 vogel-trainer extract --folder ~/vogel-daten \
   --species-model kamera-linux/german-bird-classifier \
   --sample-rate 20 --skip-blurry --deduplicate \
+  --min-sharpness 150 --min-edge-quality 80 \
   video.mp4
 ```
 
@@ -223,6 +224,9 @@ vogel-trainer extract ~/Videos/ \
 - `--max-box-size`: Maximale Bounding-Box-Größe in Pixeln (Standard: 800)
 - `--quality`: JPEG-Qualität 1-100 (Standard: 95)
 - `--skip-blurry`: Unscharfe/fokussierte Bilder überspringen (experimentell)
+- `--min-sharpness`: **NEU v0.1.9** - Min. Schärfe-Score (Laplacian-Varianz, typisch 100-300)
+- `--min-edge-quality`: **NEU v0.1.9** - Min. Kanten-Qualität (Sobel-Gradient, typisch 50-150)
+- `--save-quality-report`: **NEU v0.1.9** - Detaillierten Qualitätsbericht speichern
 - `--deduplicate`: Doppelte/ähnliche Bilder überspringen (Perceptual Hashing)
 - `--similarity-threshold`: Ähnlichkeits-Schwelle für Duplikate - Hamming-Distanz 0-64 (Standard: 5)
 - `--recursive, -r`: Verzeichnisse rekursiv durchsuchen
@@ -233,15 +237,18 @@ vogel-trainer extract ~/Videos/ \
 **Erweiterte Filter-Beispiele:**
 
 ```bash
-# Hochqualitäts-Extraktion mit allen Filtern
+# Hochqualitäts-Extraktion mit allen Filtern (v0.1.9)
 vogel-trainer extract video.mp4 \
   --folder data/ \
   --bird rotkehlchen \
   --threshold 0.6 \
   --min-box-size 80 \
   --max-box-size 600 \
+  --min-sharpness 150 \
+  --min-edge-quality 80 \
   --skip-blurry \
   --deduplicate \
+  --save-quality-report \
   --quality 98
 
 # Extraktion mit Duplikat-Erkennung (verhindert ähnliche Bilder)

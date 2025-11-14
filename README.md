@@ -225,21 +225,27 @@ vogel-trainer extract ~/Videos/ \
 - `--skip-blurry`: Skip blurry/out-of-focus images (experimental)
 - `--deduplicate`: Skip duplicate/similar images using perceptual hashing
 - `--similarity-threshold`: Similarity threshold for duplicates - Hamming distance 0-64 (default: 5)
+- `--min-sharpness`: **NEW v0.1.9** - Minimum sharpness score (Laplacian variance, typical: 100-300)
+- `--min-edge-quality`: **NEW v0.1.9** - Minimum edge quality (Sobel gradient, typical: 50-150)
+- `--save-quality-report`: **NEW v0.1.9** - Generate detailed quality statistics report
 - `--recursive, -r`: Search directories recursively
 - `--log`: Save console output to log file (`/var/log/vogel-kamera-linux/YYYY/KWXX/`)
 
 **Advanced Filtering Examples:**
 
 ```bash
-# High-quality extraction with all filters
+# High-quality extraction with all filters (v0.1.9)
 vogel-trainer extract video.mp4 \
   --folder data/ \
   --bird rotkehlchen \
   --threshold 0.6 \
   --min-box-size 80 \
   --max-box-size 600 \
+  --min-sharpness 150 \
+  --min-edge-quality 80 \
   --skip-blurry \
   --deduplicate \
+  --save-quality-report \
   --quality 98
 
 # Extract with duplicate detection (prevents similar images)
