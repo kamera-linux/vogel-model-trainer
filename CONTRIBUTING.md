@@ -198,7 +198,7 @@ Use our [Feature Request Template](.github/ISSUE_TEMPLATE/feature_request.md)
 **Do not open public issues for security vulnerabilities.**
 
 Please report security issues privately via:
-- Email: kamerawagen.linux@gmail.com
+- Email: kamera-linux@mailbox.org
 - GitHub Security Advisories
 
 See our [Security Policy](SECURITY.md) for details.

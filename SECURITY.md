@@ -17,7 +17,7 @@ We actively support the following versions of vogel-model-trainer:
 
 If you discover a security vulnerability, please report it privately via:
 
-1. **Email**: kamerawagen.linux@gmail.com
+1. **Email**: kamera-linux@mailbox.org
 2. **GitHub Security Advisories**: [Report a vulnerability](https://github.com/kamera-linux/vogel-model-trainer/security/advisories/new)
 
 ### What to Include
@@ -149,7 +149,7 @@ We appreciate responsible disclosure and will:
 
 For security-related questions or concerns:
 
-- **Email**: kamerawagen.linux@gmail.com
+- **Email**: kamera-linux@mailbox.org
 - **Security Advisories**: [GitHub](https://github.com/kamera-linux/vogel-model-trainer/security/advisories)
 
 ---

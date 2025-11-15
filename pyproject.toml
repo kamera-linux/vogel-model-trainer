@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
-    {name = "kamera-linux", email = "kamerawagen.linux@gmail.com"}
+    {name = "kamera-linux", email = "kamera-linux@mailbox.org"}
 ]
 keywords = ["birds", "computer-vision", "machine-learning", "object-detection", "species-classification"]
 classifiers = [
