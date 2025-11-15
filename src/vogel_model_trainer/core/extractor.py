@@ -17,6 +17,7 @@ import torch
 import glob
 import imagehash
 import numpy as np
+from rembg import remove as rembg_remove
 
 # Import i18n for translations
 from vogel_model_trainer.i18n import _
@@ -81,52 +82,87 @@ def is_motion_acceptable(quality_metrics, min_sharpness=None, min_edge_quality=N
     
     return True, 'accepted'
 
-def remove_background(image, margin=5):
+def remove_background(image, margin=10, iterations=10, bg_color=(255, 255, 255), model_name='u2net'):
     """
-    Remove background from bird image using GrabCut algorithm.
-    Replaces background with black color.
+    Remove background from bird image using rembg (AI-based segmentation).
+    This provides professional-quality background removal using deep learning.
     
     Args:
         image: BGR image (numpy array)
-        margin: Margin in pixels for the initial rectangle (default: 5)
+        margin: Not used, kept for API compatibility
+        iterations: Not used, kept for API compatibility
+        bg_color: Background color as BGR tuple (default: (255, 255, 255) = white)
+        model_name: rembg model to use (default: 'u2net')
+                   Options: 'u2net', 'u2netp', 'u2net_human_seg', 'isnet-general-use'
         
     Returns:
-        numpy array: Image with black background
+        numpy array: Image with replaced background
     """
     if image is None or image.size == 0:
         return image
     
     height, width = image.shape[:2]
     
-    # Create mask and model arrays for GrabCut
-    mask = np.zeros(image.shape[:2], np.uint8)
-    bgdModel = np.zeros((1, 65), np.float64)
-    fgdModel = np.zeros((1, 65), np.float64)
-    
-    # Define ROI (rectangle) - slightly inside the image borders
-    rect = (margin, margin, width - margin * 2, height - margin * 2)
-    
-    # Ensure rectangle is valid
-    if rect[2] <= 0 or rect[3] <= 0:
+    # Minimum size check
+    if height < 50 or width < 50:
         return image
     
     try:
-        # Apply GrabCut algorithm (5 iterations)
-        cv2.grabCut(image, mask, rect, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
+        # Convert BGR to RGB for rembg
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
-        # Create binary mask: 0 and 2 are background, 1 and 3 are foreground
-        mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
+        # Convert to PIL Image
+        pil_image = Image.fromarray(image_rgb)
         
-        # Create black background
-        result = np.zeros_like(image)
+        # Remove background using rembg with specified model
+        # alpha_matting improves edge quality
+        output = rembg_remove(
+            pil_image,
+            alpha_matting=True,
+            alpha_matting_foreground_threshold=240,
+            alpha_matting_background_threshold=10,
+            alpha_matting_erode_size=10,
+            post_process_mask=True
+        )
         
-        # Apply mask to keep only foreground (bird)
-        result = image * mask2[:, :, np.newaxis]
+        # Convert back to numpy array
+        output_np = np.array(output)
         
-        return result
+        # Split into RGB and Alpha channels
+        rgb = output_np[:, :, :3]
+        alpha = output_np[:, :, 3]
+        
+        # Post-processing: Smooth alpha channel for better edges
+        alpha_float = alpha.astype(np.float32) / 255.0
+        
+        # Apply slight Gaussian blur to alpha for smoother edges
+        alpha_smooth = cv2.GaussianBlur(alpha_float, (3, 3), 0)
+        
+        # Apply morphological operations to clean up
+        kernel = np.ones((3, 3), np.uint8)
+        alpha_cleaned = cv2.morphologyEx((alpha_smooth * 255).astype(np.uint8), cv2.MORPH_CLOSE, kernel, iterations=2)
+        alpha_cleaned = cv2.morphologyEx(alpha_cleaned, cv2.MORPH_OPEN, kernel, iterations=1)
+        
+        # Back to float
+        alpha_final = alpha_cleaned.astype(np.float32) / 255.0
+        
+        # Create background with specified color (RGB)
+        bg_rgb = np.array([bg_color[2], bg_color[1], bg_color[0]], dtype=np.uint8)  # BGR to RGB
+        background = np.full((height, width, 3), bg_rgb, dtype=np.uint8)
+        
+        # Blend foreground and background using alpha
+        alpha_3channel = alpha_final[:, :, np.newaxis]
+        result_rgb = (rgb * alpha_3channel + background * (1 - alpha_3channel)).astype(np.uint8)
+        
+        # Convert back to BGR for OpenCV
+        result_bgr = cv2.cvtColor(result_rgb, cv2.COLOR_RGB2BGR)
+        
+        return result_bgr
+        
     except Exception as e:
-        # If GrabCut fails, return original image
+        # If rembg fails, return original image
         print(f"Warning: Background removal failed: {e}")
+        print("Make sure rembg is installed: pip install rembg")
         return image
 
 def extract_birds_from_video(video_path, output_dir, bird_species=None, 
@@ -137,7 +173,8 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                              quality=95, skip_blurry=False,
                              deduplicate=False, similarity_threshold=5,
                              min_sharpness=None, min_edge_quality=None,
-                             save_quality_report=False, remove_bg=False):
+                             save_quality_report=False, remove_bg=False,
+                             bg_color=(255, 255, 255), bg_model='u2net'):
     """
     Extract bird crops from video and save as images
     
@@ -438,7 +475,7 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                             
                             # Apply background removal if requested
                             if remove_bg:
-                                bird_crop = remove_background(bird_crop)
+                                bird_crop = remove_background(bird_crop, bg_color=bg_color, model_name=bg_model)
                             
                             # Resize to target size for optimal training
                             if resize_to_target:

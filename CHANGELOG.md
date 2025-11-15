@@ -7,14 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.11] - 2025-11-16
+
+### Added
+- **🧪 Background Removal (EXPERIMENTAL)**: AI-powered automatic background removal using rembg
+  - `--remove-background`: Enable background removal feature
+  - `--bg-color [white|black|gray]`: Choose background color (default: white)
+  - `--bg-model [u2net|u2netp|isnet-general-use]`: Select AI model (default: u2net)
+  - Uses U²-Net deep learning model for accurate bird segmentation
+  - Alpha matting for smooth, professional edges
+  - Post-processing with morphological operations and Gaussian blur
+  - Helps create cleaner training datasets by isolating birds from complex backgrounds
+  - **Note**: Downloads ~180MB model on first use (cached afterward)
+  - **Note**: Requires additional dependency `rembg>=2.0.50`
+  - Full i18n support (EN/DE/JA)
+
+### Changed
+- Improved background removal algorithm from OpenCV GrabCut to AI-based rembg for better quality
+- Enhanced edge quality in extracted images with alpha matting technique
+
+### Fixed
+- Background removal now works reliably with complex backgrounds and varied bird plumage
+- Better handling of feathered edges and fine details
+
 ## [0.1.10] - 2025-11-15
 
 ### Added
-- **Background Removal**: Automatic background removal using GrabCut algorithm (experimental)
-  - `--remove-background`: Remove background and replace with black color
-  - Uses OpenCV's GrabCut segmentation algorithm
-  - Helps create cleaner training datasets by isolating birds from backgrounds
-  - Full i18n support (EN/DE/JA)
+- **Background Removal**: Initial implementation (superseded by v0.1.11)
 
 - **Quality Check Command**: New `quality-check` command to find and remove low-quality images from datasets
   - `--blur-threshold N`: Minimum sharpness score using Laplacian variance (default: 100.0)

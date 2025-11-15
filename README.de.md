@@ -228,7 +228,9 @@ vogel-trainer extract ~/Videos/ \
 - `--min-sharpness`: **NEU v0.1.9** - Min. Schärfe-Score (Laplacian-Varianz, typisch 100-300)
 - `--min-edge-quality`: **NEU v0.1.9** - Min. Kanten-Qualität (Sobel-Gradient, typisch 50-150)
 - `--save-quality-report`: **NEU v0.1.9** - Detaillierten Qualitätsbericht speichern
-- `--remove-background`: **NEU v0.1.10** - Hintergrund mit GrabCut entfernen, schwarz ersetzen (experimentell)
+- `--remove-background`: **🧪 EXPERIMENTELL v0.1.11** - Hintergrund mit KI entfernen (rembg)
+- `--bg-color [white|black|gray]`: **🧪 EXPERIMENTELL v0.1.11** - Hintergrundfarbe (Standard: white)
+- `--bg-model [u2net|u2netp|isnet-general-use]`: **🧪 EXPERIMENTELL v0.1.11** - KI-Modell für Hintergrundentfernung (Standard: u2net)
 - `--deduplicate`: Doppelte/ähnliche Bilder überspringen (Perceptual Hashing)
 - `--similarity-threshold`: Ähnlichkeits-Schwelle für Duplikate - Hamming-Distanz 0-64 (Standard: 5)
 - `--recursive, -r`: Verzeichnisse rekursiv durchsuchen
@@ -239,7 +241,7 @@ vogel-trainer extract ~/Videos/ \
 **Erweiterte Filter-Beispiele:**
 
 ```bash
-# Hochqualitäts-Extraktion mit allen Filtern (v0.1.10)
+# Hochqualitäts-Extraktion mit allen Filtern (v0.1.11)
 vogel-trainer extract video.mp4 \
   --folder data/ \
   --bird rotkehlchen \
@@ -248,6 +250,44 @@ vogel-trainer extract video.mp4 \
   --max-box-size 600 \
   --min-sharpness 150 \
   --min-edge-quality 80 \
+  --skip-blurry \
+  --deduplicate \
+  --save-quality-report \
+  --remove-background \
+  --bg-color white \
+  --bg-model u2net
+
+# Hintergrundentfernung mit schwarzem Hintergrund für Kontrast
+vogel-trainer extract video.mp4 \
+  --folder data/ \
+  --bird blaumeise \
+  --remove-background \
+  --bg-color black \
+  --bg-model isnet-general-use
+```
+
+**🧪 Hintergrundentfernung (EXPERIMENTELL v0.1.11):**
+
+Das `--remove-background` Feature nutzt die KI-gestützte rembg-Bibliothek zur automatischen Vogelsegmentierung:
+
+- **Modelle:**
+  - `u2net` (Standard): Beste Gesamtqualität, ~180MB Download
+  - `u2netp`: Schneller, kleineres Modell für schnelle Verarbeitung
+  - `isnet-general-use`: Beste Kantenqualität für detaillierte Federn
+
+- **Hintergrundfarben:**
+  - `white` (Standard): Sauberer weißer Hintergrund (#FFFFFF)
+  - `black`: Kontrastreicher schwarzer Hintergrund (#000000)
+  - `gray`: Neutraler grauer Hintergrund (#808080)
+
+- **Funktionen:**
+  - KI-basierte U²-Net Segmentierung für präzise Vogelisolierung
+  - Alpha Matting für glatte, professionelle Kanten
+  - Nachbearbeitung mit morphologischen Operationen
+  - Funktioniert mit komplexen Hintergründen (Äste, Blätter, Gebäude)
+  - Arbeitet mit verschiedenem Vogelgefieder und feinen Federdetails
+
+- **Hinweis:** Erster Aufruf lädt ~180MB Modell (danach gecached), benötigt `rembg>=2.0.50` Abhängigkeit
   --skip-blurry \
   --deduplicate \
   --save-quality-report \

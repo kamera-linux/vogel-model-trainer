@@ -116,7 +116,9 @@ def extract_command(args):
                 min_sharpness=args.min_sharpness,
                 min_edge_quality=args.min_edge_quality,
                 save_quality_report=args.save_quality_report,
-                remove_bg=args.remove_background
+                remove_bg=args.remove_background,
+                bg_color={'white': (255, 255, 255), 'black': (0, 0, 0), 'gray': (128, 128, 128)}[args.bg_color],
+                bg_model=args.bg_model
             )
     
     finally:
@@ -427,7 +429,21 @@ For more information, visit:
     extract_parser.add_argument(
         "--remove-background",
         action="store_true",
-        help="Remove background using GrabCut algorithm and replace with black (experimental)"
+        help="Remove background using rembg AI model (requires rembg package)"
+    )
+    extract_parser.add_argument(
+        "--bg-color",
+        type=str,
+        default="white",
+        choices=["white", "black", "gray"],
+        help="Background color when using --remove-background (default: white)"
+    )
+    extract_parser.add_argument(
+        "--bg-model",
+        type=str,
+        default="u2net",
+        choices=["u2net", "u2netp", "isnet-general-use"],
+        help="rembg model for background removal (default: u2net)"
     )
     extract_parser.add_argument(
         "--recursive", "-r",

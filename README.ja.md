@@ -228,11 +228,64 @@ vogel-trainer extract ~/Videos/ \
 - `--min-sharpness`: **NEW v0.1.9** - 最小シャープネススコア（ラプラシアン分散、一般的に100-300）
 - `--min-edge-quality`: **NEW v0.1.9** - 最小エッジ品質（ソーベル勾配、一般的に50-150）
 - `--save-quality-report`: **NEW v0.1.9** - 詳細な品質レポートを生成
-- `--remove-background`: **NEW v0.1.10** - GrabCutで背景を除去、黒で置き換え（実験的）
+- `--remove-background`: **🧪 実験的 v0.1.11** - AIで背景を除去（rembg）
+- `--bg-color [white|black|gray]`: **🧪 実験的 v0.1.11** - 背景色（デフォルト: white）
+- `--bg-model [u2net|u2netp|isnet-general-use]`: **🧪 実験的 v0.1.11** - 背景除去用AIモデル（デフォルト: u2net）
 - `--deduplicate`: 重複/類似画像をスキップ（知覚ハッシュ）
 - `--similarity-threshold`: 重複のための類似度しきい値 - ハミング距離 0-64（デフォルト: 5）
 - `--recursive, -r`: ディレクトリを再帰的に検索
 - `--log`: コンソール出力をログファイルに保存（`/var/log/vogel-kamera-linux/YYYY/KWXX/`）
+
+**高度なフィルタリング例:**
+
+```bash
+# すべてのフィルタを使用した高品質抽出 (v0.1.11)
+vogel-trainer extract video.mp4 \
+  --folder data/ \
+  --bird rotkehlchen \
+  --threshold 0.6 \
+  --min-box-size 80 \
+  --max-box-size 600 \
+  --min-sharpness 150 \
+  --min-edge-quality 80 \
+  --skip-blurry \
+  --deduplicate \
+  --save-quality-report \
+  --remove-background \
+  --bg-color white \
+  --bg-model u2net
+
+# コントラスト用の黒背景での背景除去
+vogel-trainer extract video.mp4 \
+  --folder data/ \
+  --bird blaumeise \
+  --remove-background \
+  --bg-color black \
+  --bg-model isnet-general-use
+```
+
+**🧪 背景除去（実験的 v0.1.11）:**
+
+`--remove-background`機能は、AIベースのrembgライブラリを使用して鳥を背景から自動的にセグメント化します：
+
+- **モデル:**
+  - `u2net`（デフォルト）: 最高の総合品質、~180MBダウンロード
+  - `u2netp`: より高速、小型モデルで迅速な処理
+  - `isnet-general-use`: 詳細な羽のための最高のエッジ品質
+
+- **背景色:**
+  - `white`（デフォルト）: クリーンな白背景（#FFFFFF）
+  - `black`: 高コントラスト黒背景（#000000）
+  - `gray`: ニュートラルグレー背景（#808080）
+
+- **機能:**
+  - 正確な鳥の分離のためのAIベースU²-Netセグメンテーション
+  - 滑らかでプロフェッショナルなエッジのためのアルファマッティング
+  - モルフォロジー演算による後処理
+  - 複雑な背景（枝、葉、建物）に対応
+  - さまざまな鳥の羽毛と細かい羽の詳細に対応
+
+- **注意:** 初回使用時に~180MBモデルをダウンロード（その後キャッシュ）、`rembg>=2.0.50`依存関係が必要
 
 ### 2. データセットの整理
 
