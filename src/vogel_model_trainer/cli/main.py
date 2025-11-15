@@ -115,7 +115,8 @@ def extract_command(args):
                 similarity_threshold=args.similarity_threshold,
                 min_sharpness=args.min_sharpness,
                 min_edge_quality=args.min_edge_quality,
-                save_quality_report=args.save_quality_report
+                save_quality_report=args.save_quality_report,
+                remove_bg=args.remove_background
             )
     
     finally:
@@ -422,6 +423,11 @@ For more information, visit:
         "--save-quality-report",
         action="store_true",
         help="Save detailed quality statistics report after extraction"
+    )
+    extract_parser.add_argument(
+        "--remove-background",
+        action="store_true",
+        help="Remove background using GrabCut algorithm and replace with black (experimental)"
     )
     extract_parser.add_argument(
         "--recursive", "-r",

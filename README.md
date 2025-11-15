@@ -229,13 +229,14 @@ vogel-trainer extract ~/Videos/ \
 - `--min-sharpness`: **NEW v0.1.9** - Minimum sharpness score (Laplacian variance, typical: 100-300)
 - `--min-edge-quality`: **NEW v0.1.9** - Minimum edge quality (Sobel gradient, typical: 50-150)
 - `--save-quality-report`: **NEW v0.1.9** - Generate detailed quality statistics report
+- `--remove-background`: **NEW v0.1.10** - Remove background using GrabCut, replace with black (experimental)
 - `--recursive, -r`: Search directories recursively
 - `--log`: Save console output to log file (`/var/log/vogel-kamera-linux/YYYY/KWXX/`)
 
 **Advanced Filtering Examples:**
 
 ```bash
-# High-quality extraction with all filters (v0.1.9)
+# High-quality extraction with all filters (v0.1.10)
 vogel-trainer extract video.mp4 \
   --folder data/ \
   --bird rotkehlchen \
@@ -247,6 +248,7 @@ vogel-trainer extract video.mp4 \
   --skip-blurry \
   --deduplicate \
   --save-quality-report \
+  --remove-background \
   --quality 98
 
 # Extract with duplicate detection (prevents similar images)

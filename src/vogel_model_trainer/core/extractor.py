@@ -81,6 +81,54 @@ def is_motion_acceptable(quality_metrics, min_sharpness=None, min_edge_quality=N
     
     return True, 'accepted'
 
+def remove_background(image, margin=5):
+    """
+    Remove background from bird image using GrabCut algorithm.
+    Replaces background with black color.
+    
+    Args:
+        image: BGR image (numpy array)
+        margin: Margin in pixels for the initial rectangle (default: 5)
+        
+    Returns:
+        numpy array: Image with black background
+    """
+    if image is None or image.size == 0:
+        return image
+    
+    height, width = image.shape[:2]
+    
+    # Create mask and model arrays for GrabCut
+    mask = np.zeros(image.shape[:2], np.uint8)
+    bgdModel = np.zeros((1, 65), np.float64)
+    fgdModel = np.zeros((1, 65), np.float64)
+    
+    # Define ROI (rectangle) - slightly inside the image borders
+    rect = (margin, margin, width - margin * 2, height - margin * 2)
+    
+    # Ensure rectangle is valid
+    if rect[2] <= 0 or rect[3] <= 0:
+        return image
+    
+    try:
+        # Apply GrabCut algorithm (5 iterations)
+        cv2.grabCut(image, mask, rect, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
+        
+        # Create binary mask: 0 and 2 are background, 1 and 3 are foreground
+        mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
+        
+        # Create black background
+        result = np.zeros_like(image)
+        
+        # Apply mask to keep only foreground (bird)
+        result = image * mask2[:, :, np.newaxis]
+        
+        return result
+    except Exception as e:
+        # If GrabCut fails, return original image
+        print(f"Warning: Background removal failed: {e}")
+        return image
+
 def extract_birds_from_video(video_path, output_dir, bird_species=None, 
                              detection_model=None, species_model=None,
                              threshold=None, sample_rate=None, target_image_size=224,
@@ -89,7 +137,7 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                              quality=95, skip_blurry=False,
                              deduplicate=False, similarity_threshold=5,
                              min_sharpness=None, min_edge_quality=None,
-                             save_quality_report=False):
+                             save_quality_report=False, remove_bg=False):
     """
     Extract bird crops from video and save as images
     
@@ -174,6 +222,8 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
         print(_('motion_sharpness_filter', threshold=min_sharpness))
     if min_edge_quality is not None:
         print(_('motion_edge_filter', threshold=min_edge_quality))
+    if remove_bg:
+        print(_('background_removal_enabled'))
     
     # Determine output mode
     if species_model:
@@ -385,6 +435,10 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                                 filename = f"{session_id}_{unique_id}_f{frame_num:06d}_c{conf:.2f}.jpg"
                             
                             save_path = save_dir / filename
+                            
+                            # Apply background removal if requested
+                            if remove_bg:
+                                bird_crop = remove_background(bird_crop)
                             
                             # Resize to target size for optimal training
                             if resize_to_target:

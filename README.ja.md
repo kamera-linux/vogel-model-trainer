@@ -228,6 +228,7 @@ vogel-trainer extract ~/Videos/ \
 - `--min-sharpness`: **NEW v0.1.9** - 最小シャープネススコア（ラプラシアン分散、一般的に100-300）
 - `--min-edge-quality`: **NEW v0.1.9** - 最小エッジ品質（ソーベル勾配、一般的に50-150）
 - `--save-quality-report`: **NEW v0.1.9** - 詳細な品質レポートを生成
+- `--remove-background`: **NEW v0.1.10** - GrabCutで背景を除去、黒で置き換え（実験的）
 - `--deduplicate`: 重複/類似画像をスキップ（知覚ハッシュ）
 - `--similarity-threshold`: 重複のための類似度しきい値 - ハミング距離 0-64（デフォルト: 5）
 - `--recursive, -r`: ディレクトリを再帰的に検索

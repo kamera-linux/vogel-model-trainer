@@ -228,6 +228,7 @@ vogel-trainer extract ~/Videos/ \
 - `--min-sharpness`: **NEU v0.1.9** - Min. Schärfe-Score (Laplacian-Varianz, typisch 100-300)
 - `--min-edge-quality`: **NEU v0.1.9** - Min. Kanten-Qualität (Sobel-Gradient, typisch 50-150)
 - `--save-quality-report`: **NEU v0.1.9** - Detaillierten Qualitätsbericht speichern
+- `--remove-background`: **NEU v0.1.10** - Hintergrund mit GrabCut entfernen, schwarz ersetzen (experimentell)
 - `--deduplicate`: Doppelte/ähnliche Bilder überspringen (Perceptual Hashing)
 - `--similarity-threshold`: Ähnlichkeits-Schwelle für Duplikate - Hamming-Distanz 0-64 (Standard: 5)
 - `--recursive, -r`: Verzeichnisse rekursiv durchsuchen
@@ -238,7 +239,7 @@ vogel-trainer extract ~/Videos/ \
 **Erweiterte Filter-Beispiele:**
 
 ```bash
-# Hochqualitäts-Extraktion mit allen Filtern (v0.1.9)
+# Hochqualitäts-Extraktion mit allen Filtern (v0.1.10)
 vogel-trainer extract video.mp4 \
   --folder data/ \
   --bird rotkehlchen \
@@ -250,6 +251,7 @@ vogel-trainer extract video.mp4 \
   --skip-blurry \
   --deduplicate \
   --save-quality-report \
+  --remove-background \
   --quality 98
 
 # Extraktion mit Duplikat-Erkennung (verhindert ähnliche Bilder)

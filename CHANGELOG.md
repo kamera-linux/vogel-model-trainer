@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.10] - 2025-11-15
 
 ### Added
+- **Background Removal**: Automatic background removal using GrabCut algorithm (experimental)
+  - `--remove-background`: Remove background and replace with black color
+  - Uses OpenCV's GrabCut segmentation algorithm
+  - Helps create cleaner training datasets by isolating birds from backgrounds
+  - Full i18n support (EN/DE/JA)
+
 - **Quality Check Command**: New `quality-check` command to find and remove low-quality images from datasets
   - `--blur-threshold N`: Minimum sharpness score using Laplacian variance (default: 100.0)
   - `--min-resolution N`: Minimum image width/height in pixels (default: 50)
