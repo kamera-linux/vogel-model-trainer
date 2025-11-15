@@ -24,6 +24,7 @@ Ein spezialisiertes Toolkit zum Erstellen von hochgenauen Vogelarten-Klassifizie
 - 🖼️ **Flexible Bildgrößen** - 224/384/448px oder Originalgröße beibehalten
 - 🔍 **Erweiterte Filterung** - Box-Größe, Unschärfe-Erkennung, Confidence-Schwellen
 - 🔄 **Duplikat-Erkennung** - Perceptual Hashing entfernt ähnliche Bilder
+- ✅ **Qualitätskontrolle** - Findet verschwommene, zu kleine, beschädigte oder schlecht belichtete Bilder
 - 🧠 **EfficientNet-B0 Training** - Leichtgewichtiges aber leistungsstarkes Modell
 - 🎨 **4-Level Data Augmentation** - None/Light/Medium/Heavy Intensitätsstufen
 - ⚡ **Mixed Precision Training** - FP16/BF16-Unterstützung für schnelleres GPU-Training
@@ -422,7 +423,7 @@ vogel-trainer train ~/organized-data/ \
     └── preprocessor_config.json
 ```
 
-### 4. Dataset deduplizieren (Neu!)
+### 4. Dataset deduplizieren
 
 Entferne doppelte oder sehr ähnliche Bilder aus deinem Dataset, um die Trainingsqualität zu verbessern:
 
@@ -465,7 +466,88 @@ vogel-trainer deduplicate ~/training-data/ \
 - Schwelle von 5 = sehr ähnlich, 10 = ähnlich, >15 = verschieden
 - Sicherer Standard: `report`-Modus verhindert versehentliches Löschen
 
-### 5. Modell testen
+### 5. Qualitätskontrolle (Neu!)
+
+Überprüfe dein Dataset auf Bilder mit niedriger Qualität (verschwommen, zu klein, beschädigt, Belichtungsprobleme):
+
+```bash
+# Qualitätsprobleme anzeigen ohne zu löschen
+vogel-trainer quality-check ~/training-data/ --recursive
+
+# Bilder mit niedriger Qualität löschen
+vogel-trainer quality-check ~/training-data/ \
+  --mode delete \
+  --recursive
+
+# Bilder mit niedriger Qualität in separaten Ordner verschieben
+vogel-trainer quality-check ~/training-data/ \
+  --mode move \
+  --recursive
+
+# Strengere Unschärfe-Erkennung
+vogel-trainer quality-check ~/training-data/ \
+  --blur-threshold 150.0 \
+  --recursive
+
+# Auf Helligkeits-/Kontrastprobleme prüfen
+vogel-trainer quality-check ~/training-data/ \
+  --check-brightness \
+  --recursive
+
+# Umfassende Qualitätskontrolle mit benutzerdefinierten Schwellen
+vogel-trainer quality-check ~/training-data/ \
+  --blur-threshold 120.0 \
+  --min-resolution 100 \
+  --min-filesize 2048 \
+  --check-brightness \
+  --mode move \
+  --recursive
+```
+
+**Qualitätskontroll-Parameter:**
+- `--blur-threshold`: Minimaler Schärfe-Wert (Laplacian-Varianz), niedriger=mehr Unschärfe (Standard: 100.0)
+- `--min-resolution`: Minimale Bildbreite/-höhe in Pixeln (Standard: 50)
+- `--min-filesize`: Minimale Dateigröße in Bytes (Standard: 1024)
+- `--check-brightness`: Auch auf Helligkeits-/Kontrastprobleme prüfen (zu dunkel oder überbelichtet)
+- `--mode`: Aktion: `report` (nur anzeigen, Standard), `delete` (löschen), `move` (nach low_quality/ verschieben)
+- `--recursive, -r`: Unterverzeichnisse rekursiv durchsuchen
+
+**⚠️ WARNUNG - Lösch-Modus:**
+- Die Option `--mode delete` **löscht Dateien dauerhaft** ohne Backup
+- **Führen Sie immer zuerst `--mode report` aus**, um zu sehen, was gelöscht wird
+- **Sichern Sie Ihr Dataset**, bevor Sie den Lösch-Modus verwenden
+- Erwägen Sie stattdessen `--mode move` (behält Dateien im `low_quality/`-Ordner)
+
+**Was wird geprüft:**
+- ✅ **Schärfe**: Erkennt verschwommene/unscharfe Bilder mittels Laplacian-Varianz
+- ✅ **Auflösung**: Filtert zu kleine Bilder, die das Training beeinträchtigen
+- ✅ **Dateigröße**: Erkennt beschädigte oder leere Dateien
+- ✅ **Lesbarkeit**: Prüft, ob Bilder geöffnet und verarbeitet werden können
+- ✅ **Helligkeit** (optional): Erkennt zu dunkle oder überbelichtete Bilder
+
+**Typische Schwellenwerte:**
+- Unschärfe: 100.0 (Standard) = moderat, 150.0 = strenger, 50.0 = nachsichtiger
+- Auflösung: 50px (Standard) = sehr tolerant, 100px = empfohlen, 224px = streng
+- Dateigröße: 1024 Bytes (Standard) = erkennt beschädigte Dateien
+
+**Empfohlener Workflow:**
+```bash
+# 1. Erst Probleme anzeigen (sicher)
+vogel-trainer quality-check ~/data/ --mode report --recursive
+
+# 2. Problematische Bilder verschieben (reversibel)
+vogel-trainer quality-check ~/data/ --mode move --recursive
+
+# 3. Verschobene Dateien im low_quality/ Ordner prüfen
+# 4. Bei Zufriedenheit manuell löschen: rm -rf ~/data/low_quality/
+```
+
+**Typische Schwellenwerte:**
+- Unschärfe: 100.0 (Standard) = moderat, 150.0 = strenger, 50.0 = toleranter
+- Auflösung: 50px (Standard) = sehr tolerant, 100px = empfohlen, 224px = streng
+- Dateigröße: 1024 Bytes (Standard) = erkennt beschädigte Dateien
+
+### 6. Modell testen
 
 ```bash
 # Test auf einzelnem Bild

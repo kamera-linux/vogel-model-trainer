@@ -24,6 +24,7 @@ A specialized toolkit for creating high-accuracy bird species classifiers tailor
 - 🖼️ **Flexible Image Sizes** - 224/384/448px or keep original size
 - 🔍 **Advanced Filtering** - Box size, blur detection, confidence thresholds
 - 🔄 **Duplicate Detection** - Perceptual hashing removes similar images
+- ✅ **Quality Check** - Find blurry, too-small, corrupted, or badly-exposed images
 - 🧠 **EfficientNet-B0 Training** - Lightweight yet powerful classification model
 - 🎨 **4-Level Data Augmentation** - None/light/medium/heavy intensity options
 - ⚡ **Mixed Precision Training** - FP16/BF16 support for faster GPU training
@@ -399,7 +400,7 @@ vogel-trainer train ~/organized-data/ \
     └── preprocessor_config.json
 ```
 
-### 4. Deduplicate Dataset (New!)
+### 4. Deduplicate Dataset
 
 Remove duplicate or very similar images from your dataset to improve training quality:
 
@@ -442,7 +443,83 @@ vogel-trainer deduplicate ~/training-data/ \
 - Threshold of 5 = very similar, 10 = similar, >15 = different
 - Safe default: `report` mode prevents accidental deletion
 
-### 5. Test Model
+### 5. Quality Check Dataset (New!)
+
+Check your dataset for low-quality images (blurry, too small, corrupted, brightness issues):
+
+```bash
+# Report quality issues without deleting
+vogel-trainer quality-check ~/training-data/ --recursive
+
+# Delete low-quality images
+vogel-trainer quality-check ~/training-data/ \
+  --mode delete \
+  --recursive
+
+# Move low-quality images to separate folder
+vogel-trainer quality-check ~/training-data/ \
+  --mode move \
+  --recursive
+
+# Stricter blur detection
+vogel-trainer quality-check ~/training-data/ \
+  --blur-threshold 150.0 \
+  --recursive
+
+# Check for brightness/contrast issues
+vogel-trainer quality-check ~/training-data/ \
+  --check-brightness \
+  --recursive
+
+# Comprehensive quality check with custom thresholds
+vogel-trainer quality-check ~/training-data/ \
+  --blur-threshold 120.0 \
+  --min-resolution 100 \
+  --min-filesize 2048 \
+  --check-brightness \
+  --mode move \
+  --recursive
+```
+
+**Quality Check Parameters:**
+- `--blur-threshold`: Minimum blur score (Laplacian variance), lower=more blurry (default: 100.0)
+- `--min-resolution`: Minimum image width/height in pixels (default: 50)
+- `--min-filesize`: Minimum file size in bytes (default: 1024)
+- `--check-brightness`: Also check for brightness/contrast issues (too dark or overexposed)
+- `--mode`: Action: `report` (show only, default), `delete` (remove), `move` (to low_quality/)
+- `--recursive, -r`: Search recursively through subdirectories
+
+**⚠️ WARNING - Delete Mode:**
+- The `--mode delete` option **permanently removes files** without backup
+- **Always run `--mode report` first** to preview what will be deleted
+- **Backup your dataset** before using delete mode
+- Consider using `--mode move` instead (keeps files in `low_quality/` folder)
+
+**What is checked:**
+- ✅ **Sharpness**: Detects blurry/out-of-focus images using Laplacian variance
+- ✅ **Resolution**: Filters out too-small images that hurt training
+- ✅ **File size**: Detects corrupted or empty files
+- ✅ **Readability**: Checks if images can be opened and processed
+- ✅ **Brightness** (optional): Detects too-dark or overexposed images
+
+**Typical thresholds:**
+- Blur: 100.0 (default) = moderate, 150.0 = stricter, 50.0 = more lenient
+- Resolution: 50px (default) = very permissive, 100px = recommended, 224px = strict
+- Filesize: 1024 bytes (default) = catches corrupted files
+
+**Recommended workflow:**
+```bash
+# 1. Preview issues first (safe)
+vogel-trainer quality-check ~/data/ --mode report --recursive
+
+# 2. Move problematic images (reversible)
+vogel-trainer quality-check ~/data/ --mode move --recursive
+
+# 3. Review moved files in low_quality/ folder
+# 4. Delete manually if satisfied: rm -rf ~/data/low_quality/
+```
+
+### 6. Test Model
 
 ```bash
 # Test on validation dataset

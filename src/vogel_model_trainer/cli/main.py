@@ -247,6 +247,24 @@ def deduplicate_command(args):
     return 0
 
 
+def quality_check_command(args):
+    """Execute the quality-check command."""
+    from vogel_model_trainer.core import deduplicator
+    
+    # Run quality check
+    stats = deduplicator.quality_check_dataset(
+        data_dir=args.data_dir,
+        blur_threshold=args.blur_threshold,
+        min_resolution=args.min_resolution,
+        min_filesize=args.min_filesize,
+        check_brightness=args.check_brightness,
+        mode=args.mode,
+        recursive=args.recursive
+    )
+    
+    return 0
+
+
 def main():
     """Main entry point for the CLI."""
     parser = argparse.ArgumentParser(
@@ -634,6 +652,52 @@ For more information, visit:
         help="Search recursively through subdirectories"
     )
     deduplicate_parser.set_defaults(func=deduplicate_command)
+    
+    # ===== Quality Check Command =====
+    quality_check_parser = subparsers.add_parser(
+        "quality-check",
+        help="Check dataset for low-quality images",
+        description="Check images for blur, low resolution, file corruption, and brightness issues"
+    )
+    quality_check_parser.add_argument(
+        "data_dir",
+        help="Directory containing images to check"
+    )
+    quality_check_parser.add_argument(
+        "--blur-threshold",
+        type=float,
+        default=100.0,
+        help="Minimum blur score (Laplacian variance), lower=more blurry (default: 100.0)"
+    )
+    quality_check_parser.add_argument(
+        "--min-resolution",
+        type=int,
+        default=50,
+        help="Minimum image width/height in pixels (default: 50)"
+    )
+    quality_check_parser.add_argument(
+        "--min-filesize",
+        type=int,
+        default=1024,
+        help="Minimum file size in bytes (default: 1024)"
+    )
+    quality_check_parser.add_argument(
+        "--check-brightness",
+        action="store_true",
+        help="Also check for brightness/contrast issues (too dark or overexposed)"
+    )
+    quality_check_parser.add_argument(
+        "--mode",
+        choices=["report", "delete", "move"],
+        default="report",
+        help="Action: report (show only), delete (remove), move (to low_quality/) - default: report"
+    )
+    quality_check_parser.add_argument(
+        "--recursive", "-r",
+        action="store_true",
+        help="Search recursively through subdirectories"
+    )
+    quality_check_parser.set_defaults(func=quality_check_command)
     
     # Parse arguments and execute command
     args = parser.parse_args()

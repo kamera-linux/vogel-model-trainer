@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10] - 2025-11-15
+
+### Added
+- **Quality Check Command**: New `quality-check` command to find and remove low-quality images from datasets
+  - `--blur-threshold N`: Minimum sharpness score using Laplacian variance (default: 100.0)
+  - `--min-resolution N`: Minimum image width/height in pixels (default: 50)
+  - `--min-filesize N`: Minimum file size in bytes to detect corrupted files (default: 1024)
+  - `--check-brightness`: Optional brightness/contrast analysis (detects too-dark or overexposed images)
+  - `--mode`: Three operation modes: `report` (safe, default), `move` (to low_quality/), `delete` (permanent)
+  - `--recursive`: Search through subdirectories
+  
+- **Comprehensive Quality Checks**: Five quality criteria for dataset cleaning
+  - **Sharpness**: Laplacian variance detects blurry/out-of-focus images
+  - **Resolution**: Filters images below minimum dimensions
+  - **File Size**: Detects corrupted or empty files
+  - **Readability**: Checks if images can be opened and processed
+  - **Brightness** (optional): Detects too-dark (<30) or overexposed (>225) images
+
+- **Safety Features**: Multiple safeguards against accidental data loss
+  - Default `report` mode is non-destructive
+  - Detailed preview of all issues before deletion
+  - `move` mode preserves originals in separate folder
+  - Clear warnings for `delete` mode in documentation
+
+- **Full i18n Coverage**: Complete translations for all quality-check features
+  - 25 new translation keys added (EN/DE/JA)
+  - Detailed quality reports in user's language
+  - Consistent multilingual error messages
+
+### Improved
+- **Documentation**: Comprehensive quality-check examples and warnings
+  - README.md: Added complete quality-check section with 6 examples
+  - README.de.md: Full German translation with safety warnings
+  - README.ja.md: Japanese documentation updated
+  - Feature list expanded to 16 features
+
 ## [0.1.9] - 2025-11-14
 
 ### Added

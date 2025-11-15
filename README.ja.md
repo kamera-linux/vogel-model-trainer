@@ -28,6 +28,11 @@
 - ⏸️ **グレースフルシャットダウン** - Ctrl+Cでモデル状態を保存
 - 🔄 **反復トレーニング** - トレーニング済みモデルを使用してデータセットを拡張
 - 📈 **種ごとの指標** - 種ごとの詳細な精度の内訳
+- 🔍 **重複除去コマンド** - 事前抽出された画像の類似/重複画像を検索して削除
+- 📊 **クラスバランス管理** - データセット整理で自動バランス調整と不均衡警告
+- 💾 **複数データセット形式** - ImageFolder、CSV、JSON形式でのエクスポート
+- 🌍 **完全なi18n対応** - 英語、ドイツ語、日本語でコマンドとメッセージ
+- ✅ **品質チェック** - データセットから低品質画像を検出して削除
 
 ## 🤖 事前学習済みモデル
 
@@ -312,6 +317,82 @@ vogel-trainer test ~/models/my-classifier/ -d ~/organized-data/
 #   great-tit: 98.2%
 #   blue-tit:  95.7%
 #   robin:     95.8%
+```
+
+### 5. 画質チェック（新機能！）
+
+データセットの低品質画像（ぼやけ、小さすぎる、破損、露出問題）をチェック:
+
+```bash
+# 品質問題を削除せずに表示
+vogel-trainer quality-check ~/training-data/ --recursive
+
+# 低品質画像を削除
+vogel-trainer quality-check ~/training-data/ \
+  --mode delete \
+  --recursive
+
+# 低品質画像を別フォルダに移動
+vogel-trainer quality-check ~/training-data/ \
+  --mode move \
+  --recursive
+
+# より厳格なぼやけ検出
+vogel-trainer quality-check ~/training-data/ \
+  --blur-threshold 150.0 \
+  --recursive
+
+# 明るさ/コントラストの問題をチェック
+vogel-trainer quality-check ~/training-data/ \
+  --check-brightness \
+  --recursive
+
+# カスタムしきい値で包括的な品質チェック
+vogel-trainer quality-check ~/training-data/ \
+  --blur-threshold 120.0 \
+  --min-resolution 100 \
+  --min-filesize 2048 \
+  --check-brightness \
+  --mode move \
+  --recursive
+```
+
+**品質チェックパラメータ:**
+- `--blur-threshold`: 最小鮮明度スコア（Laplacian分散）、低い=ぼやけ（デフォルト: 100.0）
+- `--min-resolution`: 最小画像幅/高さ（ピクセル）（デフォルト: 50）
+- `--min-filesize`: 最小ファイルサイズ（バイト）（デフォルト: 1024）
+- `--check-brightness`: 明るさ/コントラスト問題もチェック（暗すぎる、明るすぎる）
+- `--mode`: アクション: `report`（表示のみ、デフォルト）、`delete`（削除）、`move`（low_quality/に移動）
+- `--recursive, -r`: サブディレクトリを再帰的に検索
+
+**⚠️ 警告 - 削除モード:**
+- `--mode delete`オプションは**バックアップなしでファイルを永久に削除**します
+- **常に最初に`--mode report`を実行**して、削除される内容をプレビューしてください
+- 削除モードを使用する前に**データセットをバックアップ**してください
+- 代わりに`--mode move`を検討してください（`low_quality/`フォルダにファイルを保持）
+
+**チェック内容:**
+- ✅ **鮮明度**: Laplacian分散を使用してぼやけた/ピンぼけ画像を検出
+- ✅ **解像度**: トレーニングに悪影響を与える小さすぎる画像をフィルタ
+- ✅ **ファイルサイズ**: 破損または空のファイルを検出
+- ✅ **可読性**: 画像が開いて処理できるかをチェック
+- ✅ **明るさ**（オプション）: 暗すぎる、または明るすぎる画像を検出
+
+**典型的なしきい値:**
+- ぼやけ: 100.0（デフォルト）=中程度、150.0=厳格、50.0=寛容
+- 解像度: 50px（デフォルト）=非常に寛容、100px=推奨、224px=厳格
+- ファイルサイズ: 1024バイト（デフォルト）=破損ファイルを検出
+
+**推奨ワークフロー:**
+```bash
+# 1. 最初に問題をプレビュー（安全）
+vogel-trainer quality-check ~/data/ --mode report --recursive
+
+# 2. 問題のある画像を移動（可逆）
+vogel-trainer quality-check ~/data/ --mode move --recursive
+
+# 3. low_quality/フォルダで移動されたファイルを確認
+# 4. 満足したら手動で削除: rm -rf ~/data/low_quality/
 ```
 
 ---
