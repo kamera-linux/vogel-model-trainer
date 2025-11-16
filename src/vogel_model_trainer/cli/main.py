@@ -117,8 +117,16 @@ def extract_command(args):
                 min_edge_quality=args.min_edge_quality,
                 save_quality_report=args.save_quality_report,
                 remove_bg=args.remove_background,
-                bg_color={'white': (255, 255, 255), 'black': (0, 0, 0), 'gray': (128, 128, 128)}[args.bg_color],
-                bg_model=args.bg_model
+                bg_color={
+                    'white': (255, 255, 255), 
+                    'black': (0, 0, 0), 
+                    'gray': (128, 128, 128),
+                    'green-screen': (0, 255, 0),
+                    'blue-screen': (255, 0, 0)
+                }[args.bg_color],
+                bg_model=args.bg_model,
+                bg_transparent=args.bg_transparent,
+                bg_fill_black=args.bg_fill_black
             )
     
     finally:
@@ -268,6 +276,101 @@ def quality_check_command(args):
     return 0
 
 
+def clean_transparent_command(args):
+    """Execute the clean-transparent command to remove fragmented/incomplete transparent images."""
+    from vogel_model_trainer.core import tester
+    from pathlib import Path
+    import shutil
+    
+    data_dir = Path(args.data_dir).expanduser()
+    
+    if not data_dir.exists():
+        print(f"❌ Error: Directory not found: {data_dir}")
+        return 1
+    
+    # Find all PNG files
+    if args.recursive:
+        png_files = list(data_dir.rglob("*.png"))
+    else:
+        png_files = list(data_dir.glob("*.png"))
+    
+    if not png_files:
+        print(f"ℹ️  No PNG files found in {data_dir}")
+        return 0
+    
+    print(f"🔍 Checking {len(png_files)} PNG images...")
+    print(f"📊 Thresholds:")
+    print(f"   • Min visible pixels: {args.min_pixels}")
+    print(f"   • Max transparency: {args.max_transparency*100:.0f}%")
+    print(f"   • Min region size: {args.min_region}")
+    print()
+    
+    invalid_images = []
+    total_checked = 0
+    
+    for img_path in png_files:
+        result = tester.validate_transparent_image(
+            str(img_path),
+            min_visible_pixels=args.min_pixels,
+            max_transparency=args.max_transparency,
+            min_region_size=args.min_region
+        )
+        
+        total_checked += 1
+        
+        if not result['valid']:
+            invalid_images.append((img_path, result))
+            if args.mode != 'delete':
+                print(f"❌ {img_path.name}")
+                print(f"   Reason: {result['reason']}")
+                print(f"   Visible pixels: {result['visible_pixels']}, " +
+                      f"Transparency: {result['transparency_ratio']:.1%}, " +
+                      f"Largest region: {result['largest_region']}")
+                print()
+    
+    # Summary
+    print("=" * 70)
+    print(f"📊 Summary:")
+    print(f"   Total images checked: {total_checked}")
+    print(f"   Valid images: {total_checked - len(invalid_images)}")
+    print(f"   Invalid/Fragmented: {len(invalid_images)}")
+    print()
+    
+    if invalid_images:
+        if args.mode == 'report':
+            print("ℹ️  Mode: REPORT only (no files modified)")
+            print("💡 Use --mode delete to remove invalid images")
+            print("💡 Use --mode move to move them to invalid_transparent/")
+        
+        elif args.mode == 'delete':
+            print(f"🗑️  Deleting {len(invalid_images)} invalid images...")
+            for img_path, _ in invalid_images:
+                img_path.unlink()
+                print(f"   Deleted: {img_path.name}")
+            print(f"✅ Deleted {len(invalid_images)} images")
+        
+        elif args.mode == 'move':
+            # Create output directory
+            move_dir = data_dir / "invalid_transparent"
+            move_dir.mkdir(exist_ok=True)
+            
+            print(f"📁 Moving {len(invalid_images)} invalid images to {move_dir}...")
+            for img_path, _ in invalid_images:
+                dest = move_dir / img_path.name
+                # Handle name collisions
+                counter = 1
+                while dest.exists():
+                    dest = move_dir / f"{img_path.stem}_{counter}{img_path.suffix}"
+                    counter += 1
+                shutil.move(str(img_path), str(dest))
+                print(f"   Moved: {img_path.name}")
+            print(f"✅ Moved {len(invalid_images)} images to {move_dir}")
+    else:
+        print("✅ All images are valid!")
+    
+    return 0
+
+
 def main():
     """Main entry point for the CLI."""
     parser = argparse.ArgumentParser(
@@ -308,7 +411,7 @@ For more information, visit:
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 0.1.5"
+        version="%(prog)s 0.1.12"
     )
     
     subparsers = parser.add_subparsers(
@@ -435,8 +538,8 @@ For more information, visit:
         "--bg-color",
         type=str,
         default="white",
-        choices=["white", "black", "gray"],
-        help="Background color when using --remove-background (default: white)"
+        choices=["white", "black", "gray", "green-screen", "blue-screen"],
+        help="Background color when using --remove-background (default: white, or use transparent)"
     )
     extract_parser.add_argument(
         "--bg-model",
@@ -444,6 +547,30 @@ For more information, visit:
         default="u2net",
         choices=["u2net", "u2netp", "isnet-general-use"],
         help="rembg model for background removal (default: u2net)"
+    )
+    extract_parser.add_argument(
+        "--bg-transparent",
+        action="store_true",
+        default=True,
+        help="Create PNG with transparent background (DEFAULT). Use --no-bg-transparent for colored background"
+    )
+    extract_parser.add_argument(
+        "--no-bg-transparent",
+        dest="bg_transparent",
+        action="store_false",
+        help="Disable transparent background, use colored background instead"
+    )
+    extract_parser.add_argument(
+        "--bg-fill-black",
+        action="store_true",
+        default=True,
+        help="Make black box areas transparent too (DEFAULT). Use --no-bg-fill-black to disable"
+    )
+    extract_parser.add_argument(
+        "--no-bg-fill-black",
+        dest="bg_fill_black",
+        action="store_false",
+        help="Disable filling black areas with transparency"
     )
     extract_parser.add_argument(
         "--recursive", "-r",
@@ -720,6 +847,47 @@ For more information, visit:
         help="Search recursively through subdirectories"
     )
     quality_check_parser.set_defaults(func=quality_check_command)
+    
+    # ===== Clean Transparent Command =====
+    clean_transparent_parser = subparsers.add_parser(
+        "clean-transparent",
+        help="Remove fragmented/incomplete transparent PNG images",
+        description="Detect and remove PNG images with too much transparency or fragmented objects"
+    )
+    clean_transparent_parser.add_argument(
+        "data_dir",
+        help="Directory containing transparent PNG images to check"
+    )
+    clean_transparent_parser.add_argument(
+        "--min-pixels",
+        type=int,
+        default=500,
+        help="Minimum number of visible (non-transparent) pixels (default: 500)"
+    )
+    clean_transparent_parser.add_argument(
+        "--max-transparency",
+        type=float,
+        default=0.95,
+        help="Maximum transparency ratio 0.0-1.0 (default: 0.95 = 95%%)"
+    )
+    clean_transparent_parser.add_argument(
+        "--min-region",
+        type=int,
+        default=100,
+        help="Minimum size of largest connected region in pixels (default: 100)"
+    )
+    clean_transparent_parser.add_argument(
+        "--mode",
+        choices=["report", "delete", "move"],
+        default="report",
+        help="Action: report (show only), delete (remove), move (to invalid_transparent/) - default: report"
+    )
+    clean_transparent_parser.add_argument(
+        "--recursive", "-r",
+        action="store_true",
+        help="Search recursively through subdirectories"
+    )
+    clean_transparent_parser.set_defaults(func=clean_transparent_command)
     
     # Parse arguments and execute command
     args = parser.parse_args()

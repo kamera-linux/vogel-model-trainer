@@ -82,7 +82,8 @@ def is_motion_acceptable(quality_metrics, min_sharpness=None, min_edge_quality=N
     
     return True, 'accepted'
 
-def remove_background(image, margin=10, iterations=10, bg_color=(255, 255, 255), model_name='u2net'):
+def remove_background(image, margin=10, iterations=10, bg_color=(255, 255, 255), model_name='u2net', 
+                     transparent=True, fill_black_areas=True):
     """
     Remove background from bird image using rembg (AI-based segmentation).
     This provides professional-quality background removal using deep learning.
@@ -92,11 +93,15 @@ def remove_background(image, margin=10, iterations=10, bg_color=(255, 255, 255),
         margin: Not used, kept for API compatibility
         iterations: Not used, kept for API compatibility
         bg_color: Background color as BGR tuple (default: (255, 255, 255) = white)
+                 Special values: (0, 255, 0) = green-screen, (255, 0, 0) = blue-screen
+                 Ignored if transparent=True
         model_name: rembg model to use (default: 'u2net')
                    Options: 'u2net', 'u2netp', 'u2net_human_seg', 'isnet-general-use'
+        transparent: If True, return PNG with transparent background (alpha channel) - DEFAULT
+        fill_black_areas: If True, make black box areas transparent too - DEFAULT
         
     Returns:
-        numpy array: Image with replaced background
+        numpy array: Image with replaced background (BGRA if transparent=True, BGR otherwise)
     """
     if image is None or image.size == 0:
         return image
@@ -146,6 +151,24 @@ def remove_background(image, margin=10, iterations=10, bg_color=(255, 255, 255),
         # Back to float
         alpha_final = alpha_cleaned.astype(np.float32) / 255.0
         
+        # If fill_black_areas is enabled, detect and make black areas transparent
+        if fill_black_areas:
+            # Convert RGB to grayscale
+            gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+            # Detect very dark pixels (black box areas)
+            black_mask = gray < 20  # Threshold for "black" pixels
+            # Set alpha to 0 for black areas
+            alpha_final[black_mask] = 0.0
+        
+        # If transparent background requested, return BGRA image
+        if transparent:
+            # Create BGRA image with alpha channel
+            alpha_channel = (alpha_final * 255).astype(np.uint8)
+            result_rgba = np.dstack((rgb, alpha_channel))
+            # Convert RGB to BGR for OpenCV
+            result_bgra = cv2.cvtColor(result_rgba, cv2.COLOR_RGBA2BGRA)
+            return result_bgra
+        
         # Create background with specified color (RGB)
         bg_rgb = np.array([bg_color[2], bg_color[1], bg_color[0]], dtype=np.uint8)  # BGR to RGB
         background = np.full((height, width, 3), bg_rgb, dtype=np.uint8)
@@ -174,7 +197,8 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                              deduplicate=False, similarity_threshold=5,
                              min_sharpness=None, min_edge_quality=None,
                              save_quality_report=False, remove_bg=False,
-                             bg_color=(255, 255, 255), bg_model='u2net'):
+                             bg_color=(255, 255, 255), bg_model='u2net',
+                             bg_transparent=True, bg_fill_black=True):
     """
     Extract bird crops from video and save as images
     
@@ -469,30 +493,47 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                             if species_name and species_model:
                                 filename = f"{session_id}_{unique_id}_f{frame_num:06d}_det{conf:.2f}_cls{species_conf:.2f}.jpg"
                             else:
-                                filename = f"{session_id}_{unique_id}_f{frame_num:06d}_c{conf:.2f}.jpg"
+                                # Use PNG for transparent background, JPG otherwise
+                                file_ext = "png" if (remove_bg and bg_transparent) else "jpg"
+                                filename = f"{session_id}_{unique_id}_f{frame_num:06d}_c{conf:.2f}.{file_ext}"
                             
                             save_path = save_dir / filename
                             
                             # Apply background removal if requested
                             if remove_bg:
-                                bird_crop = remove_background(bird_crop, bg_color=bg_color, model_name=bg_model)
+                                bird_crop = remove_background(bird_crop, bg_color=bg_color, model_name=bg_model,
+                                                            transparent=bg_transparent, fill_black_areas=bg_fill_black)
                             
                             # Resize to target size for optimal training
                             if resize_to_target:
                                 if not deduplicate:  # Only create if not already created for dedup check
-                                    bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2RGB))
+                                    # Check if image has alpha channel (BGRA)
+                                    if bird_crop.shape[2] == 4:
+                                        bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGRA2RGBA))
+                                    else:
+                                        bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2RGB))
                                 # Resize maintaining aspect ratio with padding (better quality than distortion)
                                 bird_pil.thumbnail((target_image_size, target_image_size), Image.Resampling.LANCZOS)
                                 
                                 # Create square image with padding
-                                new_img = Image.new('RGB', (target_image_size, target_image_size), (0, 0, 0))
+                                # Use RGBA for transparent images, RGB for opaque
+                                if bird_pil.mode == 'RGBA':
+                                    new_img = Image.new('RGBA', (target_image_size, target_image_size), (0, 0, 0, 0))
+                                else:
+                                    new_img = Image.new('RGB', (target_image_size, target_image_size), (0, 0, 0))
                                 # Center the image
                                 x_offset = (target_image_size - bird_pil.width) // 2
                                 y_offset = (target_image_size - bird_pil.height) // 2
                                 new_img.paste(bird_pil, (x_offset, y_offset))
                                 
                                 # Save with PIL (better quality)
-                                new_img.save(str(save_path), 'JPEG', quality=quality)
+                                # Determine file extension based on transparency
+                                if new_img.mode == 'RGBA':
+                                    save_path = save_path.with_suffix('.png')
+                                    new_img.save(save_path, 'PNG', compress_level=6)
+                                else:
+                                    save_path = save_path.with_suffix('.jpg')
+                                    new_img.save(save_path, 'JPEG', quality=quality)
                                 
                                 # Add to hash cache if deduplication is enabled
                                 if deduplicate:
@@ -500,13 +541,23 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                                     saved_hash = imagehash.phash(new_img)
                                     hash_cache[str(save_path)] = saved_hash
                             else:
-                                # Save original size with OpenCV
-                                cv2.imwrite(str(save_path), bird_crop, [cv2.IMWRITE_JPEG_QUALITY, quality])
+                                # Save original size
+                                if remove_bg and bg_transparent:
+                                    # Save as PNG with transparency
+                                    save_path = save_path.with_suffix('.png')
+                                    cv2.imwrite(str(save_path), bird_crop, [cv2.IMWRITE_PNG_COMPRESSION, 6])
+                                else:
+                                    # Save as JPEG
+                                    save_path = save_path.with_suffix('.jpg')
+                                    cv2.imwrite(str(save_path), bird_crop, [cv2.IMWRITE_JPEG_QUALITY, quality])
                                 
                                 # Add to hash cache if deduplication is enabled
                                 if deduplicate:
                                     if not 'bird_pil' in locals():  # Only create if not already created
-                                        bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2RGB))
+                                        if bird_crop.shape[2] == 4:
+                                            bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGRA2RGBA))
+                                        else:
+                                            bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2RGB))
                                     hash_cache[str(save_path)] = img_hash
                             
                             if species_name:

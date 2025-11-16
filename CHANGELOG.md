@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.12] - 2025-11-16
+
+### Added
+- **🧹 Clean Transparent Command**: New `clean-transparent` command to detect and remove fragmented/incomplete transparent PNG images
+  - Detects images with too much transparency (>95% default)
+  - Identifies fragmented objects with small connected regions
+  - Checks for minimum visible pixels (500 default)
+  - Three modes: `report` (safe preview), `move` (to invalid_transparent/), `delete` (permanent)
+  - Configurable thresholds: `--min-pixels`, `--max-transparency`, `--min-region`
+  - Recursive directory scanning with `--recursive`
+  - Helps clean up datasets after AI-based background removal
+
+### Changed
+- **🎨 Transparent Background as DEFAULT**: Background removal now creates PNG with alpha channel by default
+  - `--bg-transparent` is now TRUE by default (use `--no-bg-transparent` to disable)
+  - `--bg-fill-black` is now TRUE by default (black areas become transparent)
+  - Automatically saves as PNG when transparent, JPEG when opaque
+  - Better for training models with clean, isolated bird images
+  - File extension automatically set based on transparency (.png vs .jpg)
+
+### Improved
+- Better handling of RGBA images during resizing and padding
+- Automatic file format detection based on transparency
+- Enhanced validation for transparent images with connected component analysis
+
 ## [0.1.11] - 2025-11-16
 
 ### Added

@@ -266,19 +266,29 @@ vogel-trainer extract video.mp4 \
   --bg-model isnet-general-use
 ```
 
-**🧪 Hintergrundentfernung (EXPERIMENTELL v0.1.11):**
+**🧪 Hintergrundentfernung (EXPERIMENTELL v0.1.11, Verbessert v0.1.12):**
 
-Das `--remove-background` Feature nutzt die KI-gestützte rembg-Bibliothek zur automatischen Vogelsegmentierung:
+Das `--remove-background` Feature nutzt die KI-gestützte rembg-Bibliothek zur automatischen Vogelsegmentierung.
+
+**NEU in v0.1.12:** Transparenter Hintergrund ist jetzt STANDARD! Bilder werden als PNG mit Alpha-Kanal gespeichert.
 
 - **Modelle:**
   - `u2net` (Standard): Beste Gesamtqualität, ~180MB Download
   - `u2netp`: Schneller, kleineres Modell für schnelle Verarbeitung
   - `isnet-general-use`: Beste Kantenqualität für detaillierte Federn
 
-- **Hintergrundfarben:**
+- **Transparenz (NEU STANDARD v0.1.12):**
+  - `--bg-transparent` (STANDARD): Erstellt PNG mit Alpha-Kanal
+  - `--no-bg-transparent`: Nutzt farbigen Hintergrund stattdessen (weiß/schwarz/grau)
+  - `--bg-fill-black` (STANDARD): Macht schwarze Box-Bereiche auch transparent
+  - `--no-bg-fill-black`: Behält schwarze Padding-Bereiche deckend
+
+- **Hintergrundfarben** (bei `--no-bg-transparent`):
   - `white` (Standard): Sauberer weißer Hintergrund (#FFFFFF)
   - `black`: Kontrastreicher schwarzer Hintergrund (#000000)
   - `gray`: Neutraler grauer Hintergrund (#808080)
+  - `green-screen`: Chroma-Key Grün (#00FF00)
+  - `blue-screen`: Chroma-Key Blau (#0000FF)
 
 - **Funktionen:**
   - KI-basierte U²-Net Segmentierung für präzise Vogelisolierung
@@ -286,6 +296,7 @@ Das `--remove-background` Feature nutzt die KI-gestützte rembg-Bibliothek zur a
   - Nachbearbeitung mit morphologischen Operationen
   - Funktioniert mit komplexen Hintergründen (Äste, Blätter, Gebäude)
   - Arbeitet mit verschiedenem Vogelgefieder und feinen Federdetails
+  - Speichert automatisch als PNG (transparent) oder JPEG (deckend)
 
 - **Hinweis:** Erster Aufruf lädt ~180MB Modell (danach gecached), benötigt `rembg>=2.0.50` Abhängigkeit
   --skip-blurry \
@@ -326,6 +337,42 @@ vogel-trainer extract ~/Videos/kohlmeise.mp4 \
 
 # Log-Datei-Pfad: /var/log/vogel-kamera-linux/2025/KW45/20251109_160000_extract.log
 ```
+
+### 1b. Transparente Bilder bereinigen (NEU v0.1.12) 🧹
+
+Nach der Extraktion mit `--remove-background` können fragmentierte oder unvollständige Vögel mit `clean-transparent` entfernt werden:
+
+```bash
+# Sicherer Modus: Nur Bericht (keine Dateien geändert)
+vogel-trainer clean-transparent ~/training-data/ --mode report
+
+# Verschiebe ungültige Bilder in invalid_transparent/ Ordner
+vogel-trainer clean-transparent ~/training-data/ --mode move
+
+# Permanentes Löschen ungültiger Bilder
+vogel-trainer clean-transparent ~/training-data/ --mode delete
+
+# Rekursiver Scan durch alle Unterverzeichnisse
+vogel-trainer clean-transparent ~/training-data/ --mode move --recursive
+
+# Eigene Schwellwerte
+vogel-trainer clean-transparent ~/training-data/ \
+  --min-pixels 1000 \
+  --max-transparency 0.90 \
+  --min-region 200 \
+  --mode move
+```
+
+**Erkennungskriterien:**
+- **Min. sichtbare Pixel** (`--min-pixels`, Standard: 500): Minimum nicht-transparente Pixel
+- **Max. Transparenz** (`--max-transparency`, Standard: 0.95): Maximal 95% Transparenz erlaubt
+- **Min. Regiongröße** (`--min-region`, Standard: 100): Minimale Größe des größten zusammenhängenden Objekts
+
+**Anwendungsfälle:**
+- Winzige Fragmente nach Hintergrundentfernung entfernen
+- Partielle Erkennungen bereinigen (Vogel flog aus dem Bild)
+- Bilder mit >95% Transparenz eliminieren
+- Getrennte/verstreute Pixelgruppen finden
 
 ### 2. Dataset organisieren
 

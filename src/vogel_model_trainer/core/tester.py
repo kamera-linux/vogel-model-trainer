@@ -7,6 +7,112 @@ import sys
 from pathlib import Path
 from transformers import pipeline
 from PIL import Image
+import numpy as np
+import cv2
+
+def validate_transparent_image(image_path: str, min_visible_pixels: int = 500, 
+                               max_transparency: float = 0.95, min_region_size: int = 100):
+    """
+    Validate transparent PNG images to detect incomplete/fragmented birds.
+    
+    Args:
+        image_path: Path to PNG image with alpha channel
+        min_visible_pixels: Minimum number of non-transparent pixels (default: 500)
+        max_transparency: Maximum allowed transparency ratio (default: 0.95 = 95%)
+        min_region_size: Minimum size of largest connected region (default: 100)
+    
+    Returns:
+        dict: Validation results with:
+            - valid: bool (True if image is valid)
+            - reason: str (reason for rejection if invalid)
+            - visible_pixels: int (number of visible pixels)
+            - transparency_ratio: float (ratio of transparent pixels)
+            - largest_region: int (size of largest connected region)
+    """
+    try:
+        # Load image with PIL
+        img = Image.open(image_path)
+        
+        # Check if image has alpha channel
+        if img.mode != 'RGBA':
+            return {
+                'valid': True,
+                'reason': 'No alpha channel (not transparent)',
+                'visible_pixels': img.width * img.height,
+                'transparency_ratio': 0.0,
+                'largest_region': img.width * img.height
+            }
+        
+        # Convert to numpy array
+        img_array = np.array(img)
+        alpha = img_array[:, :, 3]
+        
+        # Count visible pixels (alpha > 10)
+        visible_mask = alpha > 10
+        visible_pixels = np.sum(visible_mask)
+        total_pixels = alpha.size
+        transparency_ratio = 1.0 - (visible_pixels / total_pixels)
+        
+        # Check 1: Too few visible pixels
+        if visible_pixels < min_visible_pixels:
+            return {
+                'valid': False,
+                'reason': f'Too few visible pixels ({visible_pixels} < {min_visible_pixels})',
+                'visible_pixels': visible_pixels,
+                'transparency_ratio': transparency_ratio,
+                'largest_region': 0
+            }
+        
+        # Check 2: Too much transparency
+        if transparency_ratio > max_transparency:
+            return {
+                'valid': False,
+                'reason': f'Too transparent ({transparency_ratio:.1%} > {max_transparency:.1%})',
+                'visible_pixels': visible_pixels,
+                'transparency_ratio': transparency_ratio,
+                'largest_region': 0
+            }
+        
+        # Check 3: Fragmentation - find largest connected region
+        # Convert visible mask to uint8
+        visible_uint8 = (visible_mask * 255).astype(np.uint8)
+        
+        # Find connected components
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(visible_uint8, connectivity=8)
+        
+        # Get size of largest region (excluding background label 0)
+        if num_labels > 1:
+            largest_region = np.max(stats[1:, cv2.CC_STAT_AREA])
+        else:
+            largest_region = 0
+        
+        # Check if largest region is too small
+        if largest_region < min_region_size:
+            return {
+                'valid': False,
+                'reason': f'Fragmented object (largest region {largest_region} < {min_region_size})',
+                'visible_pixels': visible_pixels,
+                'transparency_ratio': transparency_ratio,
+                'largest_region': largest_region
+            }
+        
+        # All checks passed
+        return {
+            'valid': True,
+            'reason': 'Valid image',
+            'visible_pixels': visible_pixels,
+            'transparency_ratio': transparency_ratio,
+            'largest_region': largest_region
+        }
+        
+    except Exception as e:
+        return {
+            'valid': False,
+            'reason': f'Error loading image: {e}',
+            'visible_pixels': 0,
+            'transparency_ratio': 1.0,
+            'largest_region': 0
+        }
 
 def test_model(model_path: str, data_dir: str = None, image_path: str = None):
     """

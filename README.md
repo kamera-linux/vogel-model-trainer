@@ -263,19 +263,29 @@ vogel-trainer extract video.mp4 \
   --bg-model isnet-general-use
 ```
 
-**🧪 Background Removal (EXPERIMENTAL v0.1.11):**
+**🧪 Background Removal (EXPERIMENTAL v0.1.11, Enhanced v0.1.12):**
 
-The `--remove-background` feature uses AI-powered rembg library to automatically segment birds from backgrounds:
+The `--remove-background` feature uses AI-powered rembg library to automatically segment birds from backgrounds.
+
+**NEW in v0.1.12:** Transparent background is now the DEFAULT! Images are saved as PNG with alpha channel.
 
 - **Models:**
   - `u2net` (default): Best overall quality, ~180MB download
   - `u2netp`: Faster, smaller model for quick processing
   - `isnet-general-use`: Best edge quality for detailed feathers
 
-- **Background Colors:**
+- **Transparency (NEW DEFAULT v0.1.12):**
+  - `--bg-transparent` (DEFAULT): Creates PNG with alpha channel
+  - `--no-bg-transparent`: Use colored background instead (white/black/gray)
+  - `--bg-fill-black` (DEFAULT): Makes black box areas transparent too
+  - `--no-bg-fill-black`: Keep black padding areas opaque
+
+- **Background Colors** (when using `--no-bg-transparent`):
   - `white` (default): Clean white background (#FFFFFF)
   - `black`: High contrast black background (#000000)
   - `gray`: Neutral gray background (#808080)
+  - `green-screen`: Chroma key green (#00FF00)
+  - `blue-screen`: Chroma key blue (#0000FF)
 
 - **Features:**
   - AI-based U²-Net segmentation for accurate bird isolation
@@ -283,6 +293,7 @@ The `--remove-background` feature uses AI-powered rembg library to automatically
   - Post-processing with morphological operations
   - Handles complex backgrounds (branches, leaves, buildings)
   - Works with varied bird plumage and fine feather details
+  - Automatically saves as PNG (transparent) or JPEG (opaque)
 
 - **Note:** First use downloads ~180MB model (cached afterward), requires `rembg>=2.0.50` dependency
   --remove-background \
@@ -320,6 +331,42 @@ vogel-trainer extract ~/Videos/great-tit.mp4 \
 
 # Log file path: /var/log/vogel-kamera-linux/2025/KW45/20251109_160000_extract.log
 ```
+
+### 1b. Clean Transparent Images (NEW v0.1.12) 🧹
+
+After extracting with `--remove-background`, use `clean-transparent` to remove fragmented or incomplete birds:
+
+```bash
+# Safe mode: Report only (no files modified)
+vogel-trainer clean-transparent ~/training-data/ --mode report
+
+# Move invalid images to invalid_transparent/ folder
+vogel-trainer clean-transparent ~/training-data/ --mode move
+
+# Permanently delete invalid images
+vogel-trainer clean-transparent ~/training-data/ --mode delete
+
+# Recursive scan through all subdirectories
+vogel-trainer clean-transparent ~/training-data/ --mode move --recursive
+
+# Custom thresholds
+vogel-trainer clean-transparent ~/training-data/ \
+  --min-pixels 1000 \
+  --max-transparency 0.90 \
+  --min-region 200 \
+  --mode move
+```
+
+**Detection Criteria:**
+- **Min Visible Pixels** (`--min-pixels`, default: 500): Minimum non-transparent pixels
+- **Max Transparency** (`--max-transparency`, default: 0.95): Maximum 95% transparency allowed
+- **Min Region Size** (`--min-region`, default: 100): Minimum size of largest connected object
+
+**Use Cases:**
+- Remove tiny fragments after background removal
+- Clean up partial detections (bird flew out of frame)
+- Eliminate images with >95% transparency
+- Find disconnected/scattered pixel groups
 
 ### 2. Organize Dataset
 
