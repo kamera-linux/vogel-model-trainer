@@ -38,13 +38,28 @@ Ein spezialisiertes Toolkit zum Erstellen von hochgenauen Vogelarten-Klassifizie
 
 ## 🤖 Vortrainierte Modelle
 
-**Deutscher Gartenvögel-Klassifikator** - Sofort einsatzbereit!
+**Deutscher Gartenvögel-Klassifikatoren** - Sofort einsatzbereit!
 
-Wir stellen ein vortrainiertes Modell auf Hugging Face bereit, das 8 häufige deutsche Gartenvögel mit 100% Validierungsgenauigkeit klassifizieren kann:
+Wir stellen vortrainierte Modelle auf Hugging Face bereit, die 8 häufige deutsche Gartenvögel mit 100% Validierungsgenauigkeit klassifizieren können:
 
+### 🆕 **Empfohlen: Grauer Hintergrund (384px)**
+🔗 **[kamera-linux/german-bird-classifier-gray-384](https://huggingface.co/kamera-linux/german-bird-classifier-gray-384)**
+
+- ✅ **100% Genauigkeit** auf Validierungsdaten
+- 🎨 Grauer Hintergrund (#808080) für optimales Training
+- 📐 384x384 Auflösung für bessere Details
+- 📦 JPEG-Format (kleinere Dateien, schnelleres Laden)
+- 🚀 **Am besten für Produktiveinsatz geeignet**
+
+### 📋 Original: Transparenter Hintergrund (224px)
 🔗 **[kamera-linux/german-bird-classifier](https://huggingface.co/kamera-linux/german-bird-classifier)**
 
-**Unterstützte Arten:**
+- ✅ 100% Genauigkeit auf Validierungsdaten
+- 🎨 Transparenter PNG-Hintergrund
+- 📐 224x224 Auflösung
+- 📦 PNG-Format
+
+**Unterstützte Arten (beide Modelle):**
 - Blaumeise
 - Grünling (Grünfink)
 - Haussperling
@@ -56,11 +71,17 @@ Wir stellen ein vortrainiertes Modell auf Hugging Face bereit, das 8 häufige de
 
 **Verwendung bei der Extraktion:**
 ```bash
-vogel-trainer extract --folder ~/vogel-daten \
+# Mit neuem Grau-Hintergrund-Modell (empfohlen)
+vogel-trainer extract video.mp4 \
+  --species-model kamera-linux/german-bird-classifier-gray-384 \
+  --remove-background \
+  --sample-rate 20
+
+# Mit originalem transparenten Modell
+vogel-trainer extract video.mp4 \
   --species-model kamera-linux/german-bird-classifier \
-  --sample-rate 20 --skip-blurry --deduplicate \
-  --min-sharpness 150 --min-edge-quality 80 \
-  video.mp4
+  --remove-background --bg-transparent \
+  --sample-rate 20
 ```
 
 Das Modell klassifiziert erkannte Vögel automatisch während der Extraktion!

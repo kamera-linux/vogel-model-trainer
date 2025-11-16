@@ -38,13 +38,28 @@ A specialized toolkit for creating high-accuracy bird species classifiers tailor
 
 ## 🤖 Pre-trained Models
 
-**German Garden Birds Classifier** - Ready to use!
+**German Garden Birds Classifiers** - Ready to use!
 
-We provide a pre-trained model on Hugging Face that can classify 8 common German garden bird species with 100% validation accuracy:
+We provide pre-trained models on Hugging Face that can classify 8 common German garden bird species with 100% validation accuracy:
 
+### 🆕 **Recommended: Gray Background (384px)**
+🔗 **[kamera-linux/german-bird-classifier-gray-384](https://huggingface.co/kamera-linux/german-bird-classifier-gray-384)**
+
+- ✅ **100% accuracy** on validation set
+- 🎨 Gray background (#808080) for optimal training
+- 📐 384x384 resolution for better detail
+- 📦 JPEG format (smaller files, faster loading)
+- 🚀 **Best for production use**
+
+### 📋 Original: Transparent Background (224px)
 🔗 **[kamera-linux/german-bird-classifier](https://huggingface.co/kamera-linux/german-bird-classifier)**
 
-**Supported Species:**
+- ✅ 100% accuracy on validation set
+- 🎨 Transparent PNG background
+- 📐 224x224 resolution
+- 📦 PNG format
+
+**Supported Species (both models):**
 - Blaumeise (Blue Tit)
 - Grünling (European Greenfinch)
 - Haussperling (House Sparrow)
@@ -56,10 +71,17 @@ We provide a pre-trained model on Hugging Face that can classify 8 common German
 
 **Usage with extraction:**
 ```bash
-vogel-trainer extract --folder ~/bird-data \
+# With new gray background model (recommended)
+vogel-trainer extract video.mp4 \
+  --species-model kamera-linux/german-bird-classifier-gray-384 \
+  --remove-background \
+  --sample-rate 20
+
+# With original transparent model
+vogel-trainer extract video.mp4 \
   --species-model kamera-linux/german-bird-classifier \
-  --sample-rate 20 --skip-blurry --deduplicate \
-  video.mp4
+  --remove-background --bg-transparent \
+  --sample-rate 20
 ```
 
 The model will automatically classify detected birds during extraction!
