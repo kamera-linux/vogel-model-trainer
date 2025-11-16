@@ -82,8 +82,8 @@ def is_motion_acceptable(quality_metrics, min_sharpness=None, min_edge_quality=N
     
     return True, 'accepted'
 
-def remove_background(image, margin=10, iterations=10, bg_color=(255, 255, 255), model_name='u2net', 
-                     transparent=True, fill_black_areas=True):
+def remove_background(image, margin=10, iterations=10, bg_color=(128, 128, 128), model_name='u2net', 
+                     transparent=False, fill_black_areas=False):
     """
     Remove background from bird image using rembg (AI-based segmentation).
     This provides professional-quality background removal using deep learning.
@@ -153,22 +153,23 @@ def remove_background(image, margin=10, iterations=10, bg_color=(255, 255, 255),
         # Back to float
         alpha_final = alpha_cleaned.astype(np.float32) / 255.0
         
-        # If fill_black_areas is enabled, detect and make black PADDING areas transparent
-        # Only removes black areas that are ALREADY in the background (alpha < 0.1)
-        # This preserves black feathers/birds that rembg correctly identified as foreground
-        if fill_black_areas:
-            # Convert RGB to grayscale
-            gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
-            # Detect very dark pixels (black box/padding areas)
-            black_mask = gray < 20  # Threshold for "black" pixels
-            # Only set alpha to 0 for black areas that are ALREADY mostly transparent (background)
-            # This way, black feathers with alpha > 0.1 are preserved
-            background_mask = alpha_final < 0.1
-            black_background_mask = black_mask & background_mask
-            alpha_final[black_background_mask] = 0.0
-        
         # If transparent background requested, return BGRA image
         if transparent:
+            # If fill_black_areas is enabled, detect and make black PADDING areas transparent
+            # Only removes black areas that are ALREADY in the background (alpha < 0.1)
+            # This preserves black feathers/birds that rembg correctly identified as foreground
+            # NOTE: Only applies when transparent=True! With colored backgrounds, this is skipped.
+            if fill_black_areas:
+                # Convert RGB to grayscale
+                gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+                # Detect very dark pixels (black box/padding areas)
+                black_mask = gray < 20  # Threshold for "black" pixels
+                # Only set alpha to 0 for black areas that are ALREADY mostly transparent (background)
+                # This way, black feathers with alpha > 0.1 are preserved
+                background_mask = alpha_final < 0.1
+                black_background_mask = black_mask & background_mask
+                alpha_final[black_background_mask] = 0.0
+            
             # Create BGRA image with alpha channel
             alpha_channel = (alpha_final * 255).astype(np.uint8)
             result_rgba = np.dstack((rgb, alpha_channel))
@@ -177,6 +178,7 @@ def remove_background(image, margin=10, iterations=10, bg_color=(255, 255, 255),
             return result_bgra
         
         # Create background with specified color (RGB)
+        # NOTE: fill_black_areas is NOT applied here - we want the full colored background
         bg_rgb = np.array([bg_color[2], bg_color[1], bg_color[0]], dtype=np.uint8)  # BGR to RGB
         background = np.full((height, width, 3), bg_rgb, dtype=np.uint8)
         
@@ -204,8 +206,8 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                              deduplicate=False, similarity_threshold=5,
                              min_sharpness=None, min_edge_quality=None,
                              save_quality_report=False, remove_bg=False,
-                             bg_color=(255, 255, 255), bg_model='u2net',
-                             bg_transparent=True, bg_fill_black=True):
+                             bg_color=(128, 128, 128), bg_model='u2net',
+                             bg_transparent=False, bg_fill_black=False):
     """
     Extract bird crops from video and save as images
     
@@ -523,11 +525,13 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                                 bird_pil.thumbnail((target_image_size, target_image_size), Image.Resampling.LANCZOS)
                                 
                                 # Create square image with padding
-                                # Use RGBA for transparent images, RGB for opaque
+                                # Use RGBA for transparent images, RGB for opaque with bg_color
                                 if bird_pil.mode == 'RGBA':
                                     new_img = Image.new('RGBA', (target_image_size, target_image_size), (0, 0, 0, 0))
                                 else:
-                                    new_img = Image.new('RGB', (target_image_size, target_image_size), (0, 0, 0))
+                                    # Use background color for padding (BGR -> RGB conversion)
+                                    padding_color = (bg_color[2], bg_color[1], bg_color[0])  # BGR to RGB
+                                    new_img = Image.new('RGB', (target_image_size, target_image_size), padding_color)
                                 # Center the image
                                 x_offset = (target_image_size - bird_pil.width) // 2
                                 y_offset = (target_image_size - bird_pil.height) // 2

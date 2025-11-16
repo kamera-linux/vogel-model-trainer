@@ -276,6 +276,107 @@ def quality_check_command(args):
     return 0
 
 
+def clean_gray_command(args):
+    """Execute the clean-gray command to remove images with too much/little gray background."""
+    from vogel_model_trainer.core import tester
+    from pathlib import Path
+    import shutil
+    
+    data_dir = Path(args.data_dir).expanduser()
+    
+    if not data_dir.exists():
+        print(f"❌ Error: Directory not found: {data_dir}")
+        return 1
+    
+    # Find all image files (JPG and PNG)
+    if args.recursive:
+        jpg_files = list(data_dir.rglob("*.jpg")) + list(data_dir.rglob("*.jpeg"))
+        png_files = list(data_dir.rglob("*.png"))
+    else:
+        jpg_files = list(data_dir.glob("*.jpg")) + list(data_dir.glob("*.jpeg"))
+        png_files = list(data_dir.glob("*.png"))
+    
+    image_files = jpg_files + png_files
+    
+    if not image_files:
+        print(f"ℹ️  No image files found in {data_dir}")
+        return 0
+    
+    print(f"🔍 Checking {len(image_files)} images for gray background...")
+    print(f"📊 Thresholds:")
+    print(f"   • Min gray ratio: {args.min_gray*100:.0f}%")
+    print(f"   • Max gray ratio: {args.max_gray*100:.0f}%")
+    print(f"   • Gray tolerance: ±{args.gray_tolerance}")
+    print()
+    
+    invalid_images = []
+    total_checked = 0
+    
+    for img_path in image_files:
+        result = tester.validate_gray_background(
+            str(img_path),
+            min_gray_ratio=args.min_gray,
+            max_gray_ratio=args.max_gray,
+            gray_tolerance=args.gray_tolerance
+        )
+        
+        total_checked += 1
+        
+        if not result['valid']:
+            invalid_images.append((img_path, result))
+            if args.mode != 'delete':
+                print(f"❌ {img_path.name}")
+                print(f"   Reason: {result['reason']}")
+                print(f"   Gray: {result['gray_ratio']:.1%} ({result['gray_pixels']} pixels), " +
+                      f"Bird: {result['bird_ratio']:.1%} ({result['bird_pixels']} pixels)")
+                print()
+    
+    # Summary
+    print("=" * 70)
+    print(f"📊 Summary:")
+    print(f"   Total images checked: {total_checked}")
+    print(f"   Valid images: {total_checked - len(invalid_images)}")
+    print(f"   Invalid (wrong gray ratio): {len(invalid_images)}")
+    print()
+    
+    if invalid_images:
+        if args.mode == 'report':
+            print("ℹ️  Mode: REPORT only (no files modified)")
+            print("💡 Use --mode delete to remove invalid images")
+            print("💡 Use --mode move to move them to invalid_gray/")
+        
+        elif args.mode == 'delete':
+            print(f"🗑️  Deleting {len(invalid_images)} invalid images...")
+            for img_path, _ in invalid_images:
+                img_path.unlink()
+                print(f"   Deleted: {img_path.name}")
+            print(f"✅ Deleted {len(invalid_images)} images")
+        
+        elif args.mode == 'move':
+            # Create output directory
+            move_dir = data_dir / "invalid_gray"
+            move_dir.mkdir(exist_ok=True)
+            
+            print(f"📁 Moving {len(invalid_images)} invalid images to {move_dir}...")
+            for img_path, _ in invalid_images:
+                dest = move_dir / img_path.name
+                # Handle name collisions
+                counter = 1
+                while dest.exists():
+                    dest = move_dir / f"{img_path.stem}_{counter}{img_path.suffix}"
+                    counter += 1
+                
+                shutil.move(str(img_path), str(dest))
+                print(f"   Moved: {img_path.name}")
+            
+            print(f"✅ Moved {len(invalid_images)} images to {move_dir}")
+    
+    else:
+        print("✅ All images have valid gray background ratio!")
+    
+    return 0
+
+
 def clean_transparent_command(args):
     """Execute the clean-transparent command to remove fragmented/incomplete transparent images."""
     from vogel_model_trainer.core import tester
@@ -411,7 +512,7 @@ For more information, visit:
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 0.1.13"
+        version="%(prog)s 0.1.14"
     )
     
     subparsers = parser.add_subparsers(
@@ -537,9 +638,9 @@ For more information, visit:
     extract_parser.add_argument(
         "--bg-color",
         type=str,
-        default="white",
+        default="gray",
         choices=["white", "black", "gray", "green-screen", "blue-screen"],
-        help="Background color when using --remove-background (default: white, or use transparent)"
+        help="Background color when using --remove-background (default: gray for optimal training)"
     )
     extract_parser.add_argument(
         "--bg-model",
@@ -551,8 +652,8 @@ For more information, visit:
     extract_parser.add_argument(
         "--bg-transparent",
         action="store_true",
-        default=True,
-        help="Create PNG with transparent background (DEFAULT). Use --no-bg-transparent for colored background"
+        default=False,
+        help="Create PNG with transparent background. Use --bg-transparent to enable (default: gray background)"
     )
     extract_parser.add_argument(
         "--no-bg-transparent",
@@ -563,8 +664,8 @@ For more information, visit:
     extract_parser.add_argument(
         "--bg-fill-black",
         action="store_true",
-        default=True,
-        help="Make black PADDING/BACKGROUND areas transparent (DEFAULT). Preserves black feathers! Use --no-bg-fill-black to disable"
+        default=False,
+        help="Make black PADDING/BACKGROUND areas transparent (requires --bg-transparent). Preserves black feathers!"
     )
     extract_parser.add_argument(
         "--no-bg-fill-black",
@@ -888,6 +989,47 @@ For more information, visit:
         help="Search recursively through subdirectories"
     )
     clean_transparent_parser.set_defaults(func=clean_transparent_command)
+    
+    # ===== Clean Gray Command =====
+    clean_gray_parser = subparsers.add_parser(
+        "clean-gray",
+        help="Remove images with incorrect gray background ratio",
+        description="Detect and remove images with too much/little gray background (for gray background datasets)"
+    )
+    clean_gray_parser.add_argument(
+        "data_dir",
+        help="Directory containing images to check"
+    )
+    clean_gray_parser.add_argument(
+        "--min-gray",
+        type=float,
+        default=0.05,
+        help="Minimum gray background ratio 0.0-1.0 (default: 0.05 = 5%%)"
+    )
+    clean_gray_parser.add_argument(
+        "--max-gray",
+        type=float,
+        default=0.95,
+        help="Maximum gray background ratio 0.0-1.0 (default: 0.95 = 95%%)"
+    )
+    clean_gray_parser.add_argument(
+        "--gray-tolerance",
+        type=int,
+        default=30,
+        help="Tolerance for gray detection: max(R,G,B)-min(R,G,B) threshold (default: 30)"
+    )
+    clean_gray_parser.add_argument(
+        "--mode",
+        choices=["report", "delete", "move"],
+        default="report",
+        help="Action: report (show only), delete (remove), move (to invalid_gray/) - default: report"
+    )
+    clean_gray_parser.add_argument(
+        "--recursive", "-r",
+        action="store_true",
+        help="Search recursively through subdirectories"
+    )
+    clean_gray_parser.set_defaults(func=clean_gray_command)
     
     # Parse arguments and execute command
     args = parser.parse_args()

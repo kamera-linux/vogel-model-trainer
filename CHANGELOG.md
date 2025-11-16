@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.14] - 2025-11-16
+
+### Changed
+- **🎨 Gray Background as Default**: Changed default background from transparent to gray (#808080)
+  - Better for model training - most frameworks ignore alpha channel anyway
+  - Neutral gray provides consistent background without affecting bird colors
+  - Use `--bg-transparent` to enable transparent backgrounds if needed
+  - Changed `--bg-fill-black` default to `False` (not needed for gray backgrounds)
+
+### Added
+- **🧹 Clean Gray Command**: New `clean-gray` command to validate gray background datasets
+  - Detects images with too much gray (>95% = mostly background, no bird)
+  - Detects images with too little gray (<5% = no background padding)
+  - Configurable gray tolerance for detection (default: ±30 RGB difference)
+  - Three modes: `report` (preview), `move` (to invalid_gray/), `delete` (permanent)
+  - Works with both JPEG and PNG images
+  - Example: `vogel-trainer clean-gray ~/dataset/sperling/ --mode report`
+
+### Fixed
+- **🎯 Background Color Bug**: Fixed `--bg-color` parameter not being applied to padding areas
+  - Padding color was hardcoded to black (0,0,0) instead of using bg_color parameter
+  - Now correctly converts BGR→RGB and applies chosen background color
+  - Fixed `--bg-fill-black` being applied to colored backgrounds (should only affect transparent)
+
 ## [0.1.13] - 2025-11-16
 
 ### Fixed

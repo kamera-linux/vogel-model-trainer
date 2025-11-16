@@ -25,6 +25,8 @@ Ein spezialisiertes Toolkit zum Erstellen von hochgenauen Vogelarten-Klassifizie
 - 🔍 **Erweiterte Filterung** - Box-Größe, Unschärfe-Erkennung, Confidence-Schwellen
 - 🔄 **Duplikat-Erkennung** - Perceptual Hashing entfernt ähnliche Bilder
 - ✅ **Qualitätskontrolle** - Findet verschwommene, zu kleine, beschädigte oder schlecht belichtete Bilder
+- 🎨 **KI-Hintergrundentfernung** - Entfernt Hintergründe mit grauem Standard für optimales Training
+- 🧹 **Datensatz-Validierung** - Bereinigt transparente/graue Datensätze mit automatisierten Prüfungen
 - 🧠 **EfficientNet-B0 Training** - Leichtgewichtiges aber leistungsstarkes Modell
 - 🎨 **4-Level Data Augmentation** - None/Light/Medium/Heavy Intensitätsstufen
 - ⚡ **Mixed Precision Training** - FP16/BF16-Unterstützung für schnelleres GPU-Training
@@ -266,29 +268,29 @@ vogel-trainer extract video.mp4 \
   --bg-model isnet-general-use
 ```
 
-**🧪 Hintergrundentfernung (EXPERIMENTELL v0.1.11, Verbessert v0.1.12):**
+**🧪 Hintergrundentfernung (EXPERIMENTELL v0.1.11+, Stabil v0.1.14):**
 
 Das `--remove-background` Feature nutzt die KI-gestützte rembg-Bibliothek zur automatischen Vogelsegmentierung.
 
-**NEU in v0.1.12:** Transparenter Hintergrund ist jetzt STANDARD! Bilder werden als PNG mit Alpha-Kanal gespeichert.
+**NEU in v0.1.14:** Grauer Hintergrund ist jetzt STANDARD für optimales Training! Kleinere JPEG-Dateien, bessere Kompatibilität.
 
 - **Modelle:**
   - `u2net` (Standard): Beste Gesamtqualität, ~180MB Download
   - `u2netp`: Schneller, kleineres Modell für schnelle Verarbeitung
   - `isnet-general-use`: Beste Kantenqualität für detaillierte Federn
 
-- **Transparenz (NEU STANDARD v0.1.12):**
-  - `--bg-transparent` (STANDARD): Erstellt PNG mit Alpha-Kanal
-  - `--no-bg-transparent`: Nutzt farbigen Hintergrund stattdessen (weiß/schwarz/grau)
-  - `--bg-fill-black` (STANDARD): Macht schwarze Box-Bereiche auch transparent
-  - `--no-bg-fill-black`: Behält schwarze Padding-Bereiche deckend
-
-- **Hintergrundfarben** (bei `--no-bg-transparent`):
-  - `white` (Standard): Sauberer weißer Hintergrund (#FFFFFF)
+- **Hintergrundfarben (NEU STANDARD v0.1.14):**
+  - `gray` (STANDARD): Neutraler grauer Hintergrund (#808080) - optimal fürs Training
+  - `white`: Sauberer weißer Hintergrund (#FFFFFF)
   - `black`: Kontrastreicher schwarzer Hintergrund (#000000)
-  - `gray`: Neutraler grauer Hintergrund (#808080)
   - `green-screen`: Chroma-Key Grün (#00FF00)
   - `blue-screen`: Chroma-Key Blau (#0000FF)
+
+- **Transparenz-Optionen:**
+  - `--bg-transparent`: PNG mit Alpha-Kanal erstellen (flexibel aber größere Dateien)
+  - `--no-bg-transparent` (STANDARD): Farbiger Hintergrund (kleinere JPEG-Dateien)
+  - `--bg-fill-black`: Macht schwarze Box-Bereiche transparent (benötigt --bg-transparent)
+  - `--no-bg-fill-black` (STANDARD): Padding-Bereiche mit Hintergrundfarbe behalten
 
 - **Funktionen:**
   - KI-basierte U²-Net Segmentierung für präzise Vogelisolierung
@@ -363,16 +365,52 @@ vogel-trainer clean-transparent ~/training-data/ \
   --mode move
 ```
 
+### 1b. Datensatz-Bilder bereinigen (NEU v0.1.12+) 🧹
+
+**Transparente Bilder bereinigen** - Für transparente PNG-Datensätze:
+
+```bash
+# Sicherer Modus: Nur Bericht (keine Dateien geändert)
+vogel-trainer clean-transparent ~/training-data/ --mode report
+
+# Ungültige Bilder in invalid_transparent/ verschieben
+vogel-trainer clean-transparent ~/training-data/ --mode move --recursive
+```
+
+**Bilder mit grauem Hintergrund bereinigen (NEU v0.1.14)** - Für graue Hintergrund-Datensätze:
+
+```bash
+# Grau-Hintergrund-Anteil prüfen
+vogel-trainer clean-gray ~/training-data/ --mode report
+
+# Bilder mit falschem Grau-Anteil nach invalid_gray/ verschieben
+vogel-trainer clean-gray ~/training-data/ --mode move --recursive
+
+# Benutzerdefinierte Schwellenwerte
+vogel-trainer clean-gray ~/training-data/ \
+  --min-gray 0.10 \
+  --max-gray 0.90 \
+  --gray-tolerance 30 \
+  --mode move
+```
+
 **Erkennungskriterien:**
+
+*clean-transparent:*
 - **Min. sichtbare Pixel** (`--min-pixels`, Standard: 500): Minimum nicht-transparente Pixel
 - **Max. Transparenz** (`--max-transparency`, Standard: 0.95): Maximal 95% Transparenz erlaubt
 - **Min. Regiongröße** (`--min-region`, Standard: 100): Minimale Größe des größten zusammenhängenden Objekts
 
+*clean-gray:*
+- **Min. Grau-Anteil** (`--min-gray`, Standard: 0.05): Mindestens 5% grauer Hintergrund erforderlich
+- **Max. Grau-Anteil** (`--max-gray`, Standard: 0.95): Maximal 95% Grau erlaubt (Vogel muss sichtbar sein)
+- **Grau-Toleranz** (`--gray-tolerance`, Standard: 30): Toleranz für Grau-Erkennung (R≈G≈B±30)
+
 **Anwendungsfälle:**
 - Winzige Fragmente nach Hintergrundentfernung entfernen
 - Partielle Erkennungen bereinigen (Vogel flog aus dem Bild)
-- Bilder mit >95% Transparenz eliminieren
-- Getrennte/verstreute Pixelgruppen finden
+- Bilder mit zu viel/wenig Hintergrund eliminieren
+- Bilder finden, wo Vogel kaum sichtbar oder fehlend ist
 
 ### 2. Dataset organisieren
 

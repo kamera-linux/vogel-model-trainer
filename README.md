@@ -25,6 +25,8 @@ A specialized toolkit for creating high-accuracy bird species classifiers tailor
 - 🔍 **Advanced Filtering** - Box size, blur detection, confidence thresholds
 - 🔄 **Duplicate Detection** - Perceptual hashing removes similar images
 - ✅ **Quality Check** - Find blurry, too-small, corrupted, or badly-exposed images
+- 🎨 **AI Background Removal** - Remove backgrounds with gray default for optimal training
+- 🧹 **Dataset Validation** - Clean transparent/gray datasets with automated checks
 - 🧠 **EfficientNet-B0 Training** - Lightweight yet powerful classification model
 - 🎨 **4-Level Data Augmentation** - None/light/medium/heavy intensity options
 - ⚡ **Mixed Precision Training** - FP16/BF16 support for faster GPU training
@@ -263,29 +265,29 @@ vogel-trainer extract video.mp4 \
   --bg-model isnet-general-use
 ```
 
-**🧪 Background Removal (EXPERIMENTAL v0.1.11, Enhanced v0.1.12):**
+**🧪 Background Removal (EXPERIMENTAL v0.1.11+, Stable v0.1.14):**
 
 The `--remove-background` feature uses AI-powered rembg library to automatically segment birds from backgrounds.
 
-**NEW in v0.1.12:** Transparent background is now the DEFAULT! Images are saved as PNG with alpha channel.
+**NEW in v0.1.14:** Gray background is now the DEFAULT for optimal training! Smaller JPEG files, better compatibility.
 
 - **Models:**
   - `u2net` (default): Best overall quality, ~180MB download
   - `u2netp`: Faster, smaller model for quick processing
   - `isnet-general-use`: Best edge quality for detailed feathers
 
-- **Transparency (NEW DEFAULT v0.1.12):**
-  - `--bg-transparent` (DEFAULT): Creates PNG with alpha channel
-  - `--no-bg-transparent`: Use colored background instead (white/black/gray)
-  - `--bg-fill-black` (DEFAULT): Makes black box areas transparent too
-  - `--no-bg-fill-black`: Keep black padding areas opaque
-
-- **Background Colors** (when using `--no-bg-transparent`):
-  - `white` (default): Clean white background (#FFFFFF)
+- **Background Colors (NEW DEFAULT v0.1.14):**
+  - `gray` (DEFAULT): Neutral gray background (#808080) - best for training
+  - `white`: Clean white background (#FFFFFF)
   - `black`: High contrast black background (#000000)
-  - `gray`: Neutral gray background (#808080)
   - `green-screen`: Chroma key green (#00FF00)
   - `blue-screen`: Chroma key blue (#0000FF)
+
+- **Transparency Options:**
+  - `--bg-transparent`: Create PNG with alpha channel (flexible but larger files)
+  - `--no-bg-transparent` (DEFAULT): Use colored background (smaller JPEG files)
+  - `--bg-fill-black`: Makes black box areas transparent (requires --bg-transparent)
+  - `--no-bg-fill-black` (DEFAULT): Keep padding areas with background color
 
 - **Features:**
   - AI-based U²-Net segmentation for accurate bird isolation
@@ -332,41 +334,52 @@ vogel-trainer extract ~/Videos/great-tit.mp4 \
 # Log file path: /var/log/vogel-kamera-linux/2025/KW45/20251109_160000_extract.log
 ```
 
-### 1b. Clean Transparent Images (NEW v0.1.12) 🧹
+### 1b. Clean Dataset Images (NEW v0.1.12+) 🧹
 
-After extracting with `--remove-background`, use `clean-transparent` to remove fragmented or incomplete birds:
+**Clean Transparent Images** - For transparent PNG datasets:
 
 ```bash
 # Safe mode: Report only (no files modified)
 vogel-trainer clean-transparent ~/training-data/ --mode report
 
 # Move invalid images to invalid_transparent/ folder
-vogel-trainer clean-transparent ~/training-data/ --mode move
-
-# Permanently delete invalid images
-vogel-trainer clean-transparent ~/training-data/ --mode delete
-
-# Recursive scan through all subdirectories
 vogel-trainer clean-transparent ~/training-data/ --mode move --recursive
+```
+
+**Clean Gray Background Images (NEW v0.1.14)** - For gray background datasets:
+
+```bash
+# Check gray background ratio
+vogel-trainer clean-gray ~/training-data/ --mode report
+
+# Move images with wrong gray ratio to invalid_gray/
+vogel-trainer clean-gray ~/training-data/ --mode move --recursive
 
 # Custom thresholds
-vogel-trainer clean-transparent ~/training-data/ \
-  --min-pixels 1000 \
-  --max-transparency 0.90 \
-  --min-region 200 \
+vogel-trainer clean-gray ~/training-data/ \
+  --min-gray 0.10 \
+  --max-gray 0.90 \
+  --gray-tolerance 30 \
   --mode move
 ```
 
 **Detection Criteria:**
+
+*clean-transparent:*
 - **Min Visible Pixels** (`--min-pixels`, default: 500): Minimum non-transparent pixels
 - **Max Transparency** (`--max-transparency`, default: 0.95): Maximum 95% transparency allowed
 - **Min Region Size** (`--min-region`, default: 100): Minimum size of largest connected object
 
+*clean-gray:*
+- **Min Gray Ratio** (`--min-gray`, default: 0.05): Minimum 5% gray background required
+- **Max Gray Ratio** (`--max-gray`, default: 0.95): Maximum 95% gray allowed (need visible bird)
+- **Gray Tolerance** (`--gray-tolerance`, default: 30): Tolerance for gray detection (R≈G≈B±30)
+
 **Use Cases:**
 - Remove tiny fragments after background removal
 - Clean up partial detections (bird flew out of frame)
-- Eliminate images with >95% transparency
-- Find disconnected/scattered pixel groups
+- Eliminate images with too much/little background
+- Find images where bird is barely visible or missing
 
 ### 2. Organize Dataset
 

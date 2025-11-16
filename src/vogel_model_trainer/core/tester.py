@@ -10,6 +10,103 @@ from PIL import Image
 import numpy as np
 import cv2
 
+def validate_gray_background(image_path: str, min_gray_ratio: float = 0.05, 
+                             max_gray_ratio: float = 0.95, gray_tolerance: int = 30):
+    """
+    Validate images with gray background to detect problems.
+    
+    Args:
+        image_path: Path to image (JPEG or PNG)
+        min_gray_ratio: Minimum required gray pixels (default: 0.05 = 5%)
+        max_gray_ratio: Maximum allowed gray pixels (default: 0.95 = 95%)
+        gray_tolerance: Tolerance for gray detection (default: 30)
+                       Pixels with R≈G≈B±tolerance are considered gray
+    
+    Returns:
+        dict: Validation results with:
+            - valid: bool (True if image is valid)
+            - reason: str (reason for rejection if invalid)
+            - gray_pixels: int (number of gray background pixels)
+            - gray_ratio: float (ratio of gray pixels)
+            - bird_pixels: int (number of non-gray pixels = bird)
+            - bird_ratio: float (ratio of bird pixels)
+    """
+    try:
+        # Load image
+        img = Image.open(image_path)
+        
+        # Convert to RGB if needed (handle RGBA)
+        if img.mode == 'RGBA':
+            # Create white background for transparent areas
+            background = Image.new('RGB', img.size, (128, 128, 128))
+            background.paste(img, mask=img.split()[3])
+            img = background
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
+        
+        # Convert to numpy array
+        img_array = np.array(img)
+        
+        # Detect gray pixels: R≈G≈B (within tolerance)
+        # Gray is where max(R,G,B) - min(R,G,B) < tolerance
+        r, g, b = img_array[:, :, 0], img_array[:, :, 1], img_array[:, :, 2]
+        
+        max_channel = np.maximum(np.maximum(r, g), b)
+        min_channel = np.minimum(np.minimum(r, g), b)
+        color_diff = max_channel - min_channel
+        
+        # Gray pixels are those with low color difference
+        gray_mask = color_diff < gray_tolerance
+        
+        gray_pixels = np.sum(gray_mask)
+        total_pixels = img_array.shape[0] * img_array.shape[1]
+        gray_ratio = gray_pixels / total_pixels
+        
+        bird_pixels = total_pixels - gray_pixels
+        bird_ratio = bird_pixels / total_pixels
+        
+        # Check 1: Too few gray pixels (mostly bird = no background)
+        if gray_ratio < min_gray_ratio:
+            return {
+                'valid': False,
+                'reason': f'Too little gray background ({gray_ratio:.1%} < {min_gray_ratio:.1%})',
+                'gray_pixels': gray_pixels,
+                'gray_ratio': gray_ratio,
+                'bird_pixels': bird_pixels,
+                'bird_ratio': bird_ratio
+            }
+        
+        # Check 2: Too many gray pixels (mostly background = no bird)
+        if gray_ratio > max_gray_ratio:
+            return {
+                'valid': False,
+                'reason': f'Too much gray background ({gray_ratio:.1%} > {max_gray_ratio:.1%})',
+                'gray_pixels': gray_pixels,
+                'gray_ratio': gray_ratio,
+                'bird_pixels': bird_pixels,
+                'bird_ratio': bird_ratio
+            }
+        
+        # All checks passed
+        return {
+            'valid': True,
+            'reason': 'Valid image',
+            'gray_pixels': gray_pixels,
+            'gray_ratio': gray_ratio,
+            'bird_pixels': bird_pixels,
+            'bird_ratio': bird_ratio
+        }
+        
+    except Exception as e:
+        return {
+            'valid': False,
+            'reason': f'Error: {str(e)}',
+            'gray_pixels': 0,
+            'gray_ratio': 0.0,
+            'bird_pixels': 0,
+            'bird_ratio': 0.0
+        }
+
 def validate_transparent_image(image_path: str, min_visible_pixels: int = 500, 
                                max_transparency: float = 0.95, min_region_size: int = 100):
     """
