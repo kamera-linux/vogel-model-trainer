@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.13] - 2025-11-16
+
+### Fixed
+- **🐦 Black Feather Preservation**: Fixed `--bg-fill-black` to preserve black feathers on birds
+  - Now only makes black areas transparent that are ALREADY identified as background by rembg (alpha < 0.1)
+  - Black feathers, Kohlmeisen caps, Raben, Amseln are now correctly preserved
+  - Only removes black padding/box areas that were already marked as background
+  - Prevents false transparency on birds with black plumage
+
+### Improved
+- Better documentation for `--bg-fill-black` parameter explaining that black bird features are preserved
+- Updated CLI help text to clarify that only padding/background areas are affected
+
 ## [0.1.12] - 2025-11-16
 
 ### Added

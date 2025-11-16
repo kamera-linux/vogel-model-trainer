@@ -411,7 +411,7 @@ For more information, visit:
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 0.1.12"
+        version="%(prog)s 0.1.13"
     )
     
     subparsers = parser.add_subparsers(
@@ -564,13 +564,13 @@ For more information, visit:
         "--bg-fill-black",
         action="store_true",
         default=True,
-        help="Make black box areas transparent too (DEFAULT). Use --no-bg-fill-black to disable"
+        help="Make black PADDING/BACKGROUND areas transparent (DEFAULT). Preserves black feathers! Use --no-bg-fill-black to disable"
     )
     extract_parser.add_argument(
         "--no-bg-fill-black",
         dest="bg_fill_black",
         action="store_false",
-        help="Disable filling black areas with transparency"
+        help="Disable filling black padding areas with transparency (keeps black boxes opaque)"
     )
     extract_parser.add_argument(
         "--recursive", "-r",

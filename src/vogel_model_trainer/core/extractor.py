@@ -98,7 +98,9 @@ def remove_background(image, margin=10, iterations=10, bg_color=(255, 255, 255),
         model_name: rembg model to use (default: 'u2net')
                    Options: 'u2net', 'u2netp', 'u2net_human_seg', 'isnet-general-use'
         transparent: If True, return PNG with transparent background (alpha channel) - DEFAULT
-        fill_black_areas: If True, make black box areas transparent too - DEFAULT
+        fill_black_areas: If True, make black BACKGROUND/PADDING areas transparent - DEFAULT
+                         Only affects areas already identified as background by rembg (alpha < 0.1)
+                         BLACK FEATHERS/BIRDS are preserved! (they have alpha > 0.1 from rembg)
         
     Returns:
         numpy array: Image with replaced background (BGRA if transparent=True, BGR otherwise)
@@ -151,14 +153,19 @@ def remove_background(image, margin=10, iterations=10, bg_color=(255, 255, 255),
         # Back to float
         alpha_final = alpha_cleaned.astype(np.float32) / 255.0
         
-        # If fill_black_areas is enabled, detect and make black areas transparent
+        # If fill_black_areas is enabled, detect and make black PADDING areas transparent
+        # Only removes black areas that are ALREADY in the background (alpha < 0.1)
+        # This preserves black feathers/birds that rembg correctly identified as foreground
         if fill_black_areas:
             # Convert RGB to grayscale
             gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
-            # Detect very dark pixels (black box areas)
+            # Detect very dark pixels (black box/padding areas)
             black_mask = gray < 20  # Threshold for "black" pixels
-            # Set alpha to 0 for black areas
-            alpha_final[black_mask] = 0.0
+            # Only set alpha to 0 for black areas that are ALREADY mostly transparent (background)
+            # This way, black feathers with alpha > 0.1 are preserved
+            background_mask = alpha_final < 0.1
+            black_background_mask = black_mask & background_mask
+            alpha_final[black_background_mask] = 0.0
         
         # If transparent background requested, return BGRA image
         if transparent:
