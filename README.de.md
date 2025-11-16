@@ -36,30 +36,15 @@ Ein spezialisiertes Toolkit zum Erstellen von hochgenauen Vogelarten-Klassifizie
 - 🌍 **Vollständige i18n-Unterstützung** - Englisch, Deutsch, Japanisch
 - 📈 **Pro-Art-Metriken** - Detaillierte Genauigkeits-Aufschlüsselung pro Vogelart
 
-## 🤖 Vortrainierte Modelle
+## 🤖 Vortrainiertes Modell
 
-**Deutscher Gartenvögel-Klassifikatoren** - Sofort einsatzbereit!
+**Deutscher Gartenvögel-Klassifikator** - Sofort einsatzbereit!
 
-Wir stellen vortrainierte Modelle auf Hugging Face bereit, die 8 häufige deutsche Gartenvögel mit 100% Validierungsgenauigkeit klassifizieren können:
+Wir stellen ein vortrainiertes Modell auf Hugging Face bereit, das 8 häufige deutsche Gartenvögel mit 100% Validierungsgenauigkeit klassifizieren kann:
 
-### 🆕 **Empfohlen: Grauer Hintergrund (384px)**
-🔗 **[kamera-linux/german-bird-classifier-gray-384](https://huggingface.co/kamera-linux/german-bird-classifier-gray-384)**
-
-- ✅ **100% Genauigkeit** auf Validierungsdaten
-- 🎨 Grauer Hintergrund (#808080) für optimales Training
-- 📐 384x384 Auflösung für bessere Details
-- 📦 JPEG-Format (kleinere Dateien, schnelleres Laden)
-- 🚀 **Am besten für Produktiveinsatz geeignet**
-
-### 📋 Original: Transparenter Hintergrund (224px)
 🔗 **[kamera-linux/german-bird-classifier](https://huggingface.co/kamera-linux/german-bird-classifier)**
 
-- ✅ 100% Genauigkeit auf Validierungsdaten
-- 🎨 Transparenter PNG-Hintergrund
-- 📐 224x224 Auflösung
-- 📦 PNG-Format
-
-**Unterstützte Arten (beide Modelle):**
+**Unterstützte Arten:**
 - Blaumeise
 - Grünling (Grünfink)
 - Haussperling
@@ -71,17 +56,11 @@ Wir stellen vortrainierte Modelle auf Hugging Face bereit, die 8 häufige deutsc
 
 **Verwendung bei der Extraktion:**
 ```bash
-# Mit neuem Grau-Hintergrund-Modell (empfohlen)
-vogel-trainer extract video.mp4 \
-  --species-model kamera-linux/german-bird-classifier-gray-384 \
-  --remove-background \
-  --sample-rate 20
-
-# Mit originalem transparenten Modell
 vogel-trainer extract video.mp4 \
   --species-model kamera-linux/german-bird-classifier \
-  --remove-background --bg-transparent \
-  --sample-rate 20
+  --remove-background \
+  --sample-rate 20 --skip-blurry --deduplicate \
+  --min-sharpness 150 --min-edge-quality 80
 ```
 
 Das Modell klassifiziert erkannte Vögel automatisch während der Extraktion!

@@ -40,22 +40,9 @@
 
 Hugging Faceで、8種類の一般的なドイツの庭鳥を100%の検証精度で分類できる事前学習済みモデルを提供しています：
 
-### 推奨: グレー背景モデル（384x384）
-
-🔗 **[kamera-linux/german-bird-classifier-gray-384](https://huggingface.co/kamera-linux/german-bird-classifier-gray-384)**
-
-- ✅ **より高い精度** - 384x384画像サイズで100%の精度
-- 🎨 **グレー背景** - より自然な外観、照明の変化に強い
-- 🚀 **最新の前処理** - vogel-trainer v0.1.14+のデフォルト
-
-### 従来: 透明背景モデル（224x224）
-
 🔗 **[kamera-linux/german-bird-classifier](https://huggingface.co/kamera-linux/german-bird-classifier)**
 
-- 📦 **より小さいサイズ** - 高速推論
-- 🔍 **224x224画像** - 低スペックハードウェアに最適
-
-**対応種（両モデル）:**
+**対応種:**
 - Blaumeise（アオガラ）
 - Grünling（アオカワラヒワ）
 - Haussperling（イエスズメ）
@@ -65,20 +52,11 @@ Hugging Faceで、8種類の一般的なドイツの庭鳥を100%の検証精度
 - Rotkehlchen（ヨーロッパコマドリ）
 - Sumpfmeise（ハシブトガラ）
 
-**抽出時の使用方法（グレー背景 - 推奨）:**
-```bash
-vogel-trainer extract --folder ~/bird-data \
-  --species-model kamera-linux/german-bird-classifier-gray-384 \
-  --bg-color gray --image-size 384 \
-  --sample-rate 20 --skip-blurry --deduplicate \
-  --min-sharpness 150 --min-edge-quality 80 \
-  video.mp4
-```
-
-**従来モデル使用時:**
+**抽出時の使用方法:**
 ```bash
 vogel-trainer extract --folder ~/bird-data \
   --species-model kamera-linux/german-bird-classifier \
+  --remove-background \
   --sample-rate 20 --skip-blurry --deduplicate \
   --min-sharpness 150 --min-edge-quality 80 \
   video.mp4
