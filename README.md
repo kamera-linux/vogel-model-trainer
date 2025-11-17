@@ -59,6 +59,7 @@ We provide a pre-trained model on Hugging Face that can classify 8 common German
 vogel-trainer extract video.mp4 \
   --species-model kamera-linux/german-bird-classifier \
   --remove-background \
+  --crop-padding 20 \
   --sample-rate 20 --skip-blurry --deduplicate \
   --min-sharpness 150 --min-edge-quality 80
 ```
@@ -233,6 +234,7 @@ vogel-trainer extract ~/Videos/ \
 - `--min-edge-quality`: **NEW v0.1.9** - Minimum edge quality (Sobel gradient, typical: 50-150)
 - `--save-quality-report`: **NEW v0.1.9** - Generate detailed quality statistics report
 - `--remove-background`: **🧪 EXPERIMENTAL v0.1.11** - Remove background using AI (rembg)
+- `--crop-padding`: **NEW v0.1.15** - Pixels to expand mask around bird (preserves details like feet/beak)
 - `--bg-color [white|black|gray]`: **🧪 EXPERIMENTAL v0.1.11** - Background color (default: white)
 - `--bg-model [u2net|u2netp|isnet-general-use]`: **🧪 EXPERIMENTAL v0.1.11** - AI model for background removal (default: u2net)
 - `--recursive, -r`: Search directories recursively
@@ -241,7 +243,7 @@ vogel-trainer extract ~/Videos/ \
 **Advanced Filtering Examples:**
 
 ```bash
-# High-quality extraction with all filters (v0.1.11)
+# High-quality extraction with all filters (v0.1.15)
 vogel-trainer extract video.mp4 \
   --folder data/ \
   --bird rotkehlchen \
@@ -254,15 +256,17 @@ vogel-trainer extract video.mp4 \
   --deduplicate \
   --save-quality-report \
   --remove-background \
-  --bg-color white \
+  --crop-padding 20 \
+  --bg-color gray \
   --bg-model u2net
 
-# Background removal with black background for contrast
+# Background removal with detail preservation (recommended)
 vogel-trainer extract video.mp4 \
   --folder data/ \
   --bird blaumeise \
   --remove-background \
-  --bg-color black \
+  --crop-padding 20 \
+  --bg-color gray \
   --bg-model isnet-general-use
 ```
 
@@ -271,6 +275,15 @@ vogel-trainer extract video.mp4 \
 The `--remove-background` feature uses AI-powered rembg library to automatically segment birds from backgrounds.
 
 **NEW in v0.1.14:** Gray background is now the DEFAULT for optimal training! Smaller JPEG files, better compatibility.
+
+**NEW in v0.1.15:** Crop padding feature to preserve bird details (feet, beak, feathers)!
+
+- **Crop Padding (v0.1.15+):**
+  - `--crop-padding N`: Expand foreground mask by N pixels around detected bird
+  - Prevents loss of important details (feet, beak, tail feathers) during background removal
+  - Recommended value: `20` pixels for optimal results
+  - Only works with `--remove-background` flag
+  - Example: `--crop-padding 20` keeps 20 more pixels around the bird
 
 - **Models:**
   - `u2net` (default): Best overall quality, ~180MB download
@@ -299,6 +312,53 @@ The `--remove-background` feature uses AI-powered rembg library to automatically
   - Automatically saves as PNG (transparent) or JPEG (opaque)
 
 - **Note:** First use downloads ~180MB model (cached afterward), requires `rembg>=2.0.50` dependency
+
+**💡 Training with Transparent Backgrounds (NEW v0.1.15):**
+
+When training with PNG images that have transparent backgrounds, the trainer automatically applies **random background augmentation**:
+- During training: Each image gets a random gray/black/white background
+- During validation/testing: Consistent neutral gray background
+- **Benefit**: Model learns to focus on bird features, not background color
+- **Result**: More robust classifier that works with any background
+
+To use this feature, simply extract with `--remove-background --bg-transparent`:
+```bash
+# Extract with transparent backgrounds
+vogel-trainer extract video.mp4 \
+  --folder data/ \
+  --bird rotkehlchen \
+  --remove-background \
+  --crop-padding 20 \
+  --bg-transparent \
+  --sample-rate 30
+
+# Train - random backgrounds applied automatically!
+vogel-trainer train data/ --output-dir models/
+```
+
+**💡 Best Practice for Public Models:**
+```bash
+# Recommended settings for neutral dataset (v0.1.15)
+# Using opaque gray background (smaller files, consistent)
+vogel-trainer extract video.mp4 \
+  --folder data/ \
+  --bird rotkehlchen \
+  --remove-background \
+  --crop-padding 20 \
+  --bg-color gray \
+  --sample-rate 30 \
+  --skip-blurry \
+  --deduplicate \
+  --save-quality-report \
+  --quality 98
+```
+
+# Extract with high quality settings
+vogel-trainer extract video.mp4 \
+  --folder data/ \
+  --skip-blurry \
+  --deduplicate \
+  --save-quality-report \
   --remove-background \
   --quality 98
 

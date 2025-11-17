@@ -59,6 +59,7 @@ Wir stellen ein vortrainiertes Modell auf Hugging Face bereit, das 8 häufige de
 vogel-trainer extract video.mp4 \
   --species-model kamera-linux/german-bird-classifier \
   --remove-background \
+  --crop-padding 20 \
   --sample-rate 20 --skip-blurry --deduplicate \
   --min-sharpness 150 --min-edge-quality 80
 ```
@@ -231,6 +232,7 @@ vogel-trainer extract ~/Videos/ \
 - `--min-edge-quality`: **NEU v0.1.9** - Min. Kanten-Qualität (Sobel-Gradient, typisch 50-150)
 - `--save-quality-report`: **NEU v0.1.9** - Detaillierten Qualitätsbericht speichern
 - `--remove-background`: **🧪 EXPERIMENTELL v0.1.11** - Hintergrund mit KI entfernen (rembg)
+- `--crop-padding`: **NEU v0.1.15** - Pixel um Vogel herum erweitern (erhält Details wie Füße/Schnabel)
 - `--bg-color [white|black|gray]`: **🧪 EXPERIMENTELL v0.1.11** - Hintergrundfarbe (Standard: white)
 - `--bg-model [u2net|u2netp|isnet-general-use]`: **🧪 EXPERIMENTELL v0.1.11** - KI-Modell für Hintergrundentfernung (Standard: u2net)
 - `--deduplicate`: Doppelte/ähnliche Bilder überspringen (Perceptual Hashing)
@@ -243,7 +245,7 @@ vogel-trainer extract ~/Videos/ \
 **Erweiterte Filter-Beispiele:**
 
 ```bash
-# Hochqualitäts-Extraktion mit allen Filtern (v0.1.11)
+# Hochqualitäts-Extraktion mit allen Filtern (v0.1.15)
 vogel-trainer extract video.mp4 \
   --folder data/ \
   --bird rotkehlchen \
@@ -256,15 +258,17 @@ vogel-trainer extract video.mp4 \
   --deduplicate \
   --save-quality-report \
   --remove-background \
-  --bg-color white \
+  --crop-padding 20 \
+  --bg-color gray \
   --bg-model u2net
 
-# Hintergrundentfernung mit schwarzem Hintergrund für Kontrast
+# Hintergrundentfernung mit Detail-Erhaltung (empfohlen)
 vogel-trainer extract video.mp4 \
   --folder data/ \
   --bird blaumeise \
   --remove-background \
-  --bg-color black \
+  --crop-padding 20 \
+  --bg-color gray \
   --bg-model isnet-general-use
 ```
 
@@ -273,6 +277,15 @@ vogel-trainer extract video.mp4 \
 Das `--remove-background` Feature nutzt die KI-gestützte rembg-Bibliothek zur automatischen Vogelsegmentierung.
 
 **NEU in v0.1.14:** Grauer Hintergrund ist jetzt STANDARD für optimales Training! Kleinere JPEG-Dateien, bessere Kompatibilität.
+
+**NEU in v0.1.15:** Crop-Padding Feature zur Erhaltung von Vogeldetails (Füße, Schnabel, Federn)!
+
+- **Crop-Padding (v0.1.15+):**
+  - `--crop-padding N`: Erweitert die Vordergrundmaske um N Pixel rund um den erkannten Vogel
+  - Verhindert den Verlust wichtiger Details (Füße, Schnabel, Schwanzfedern) bei der Hintergrundentfernung
+  - Empfohlener Wert: `20` Pixel für optimale Ergebnisse
+  - Funktioniert nur mit `--remove-background` Flag
+  - Beispiel: `--crop-padding 20` behält 20 zusätzliche Pixel um den Vogel herum
 
 - **Modelle:**
   - `u2net` (Standard): Beste Gesamtqualität, ~180MB Download
@@ -301,11 +314,46 @@ Das `--remove-background` Feature nutzt die KI-gestützte rembg-Bibliothek zur a
   - Speichert automatisch als PNG (transparent) oder JPEG (deckend)
 
 - **Hinweis:** Erster Aufruf lädt ~180MB Modell (danach gecached), benötigt `rembg>=2.0.50` Abhängigkeit
+
+**💡 Training mit transparenten Hintergründen (NEU v0.1.15):**
+
+Beim Training mit PNG-Bildern mit transparentem Hintergrund wendet der Trainer automatisch **zufällige Hintergrund-Augmentierung** an:
+- Während des Trainings: Jedes Bild bekommt einen zufälligen grau/schwarz/weißen Hintergrund
+- Während der Validierung/Tests: Konsistenter neutraler grauer Hintergrund
+- **Vorteil**: Modell lernt sich auf Vogelmerkmale zu konzentrieren, nicht auf Hintergrundfarbe
+- **Ergebnis**: Robusterer Klassifikator, der mit jedem Hintergrund funktioniert
+
+Um dieses Feature zu nutzen, einfach mit `--remove-background --bg-transparent` extrahieren:
+```bash
+# Extraktion mit transparenten Hintergründen
+vogel-trainer extract video.mp4 \
+  --folder data/ \
+  --bird rotkehlchen \
+  --remove-background \
+  --crop-padding 20 \
+  --bg-transparent \
+  --sample-rate 30
+
+# Training - zufällige Hintergründe werden automatisch angewendet!
+vogel-trainer train data/ --output-dir models/
+```
+
+**💡 Best Practice für öffentliche Modelle:**
+```bash
+# Empfohlene Einstellungen für neutralen Datensatz (v0.1.15)
+# Mit festem grauen Hintergrund (kleinere Dateien, konsistent)
+vogel-trainer extract video.mp4 \
+  --folder data/ \
+  --bird rotkehlchen \
+  --remove-background \
+  --crop-padding 20 \
+  --bg-color gray \
+  --sample-rate 30 \
   --skip-blurry \
   --deduplicate \
   --save-quality-report \
-  --remove-background \
   --quality 98
+```
 
 # Extraktion mit Duplikat-Erkennung (verhindert ähnliche Bilder)
 vogel-trainer extract ~/Videos/*.mp4 \

@@ -17,7 +17,6 @@ import torch
 import glob
 import imagehash
 import numpy as np
-from rembg import remove as rembg_remove
 
 # Import i18n for translations
 from vogel_model_trainer.i18n import _
@@ -83,7 +82,7 @@ def is_motion_acceptable(quality_metrics, min_sharpness=None, min_edge_quality=N
     return True, 'accepted'
 
 def remove_background(image, margin=10, iterations=10, bg_color=(128, 128, 128), model_name='u2net', 
-                     transparent=False, fill_black_areas=False):
+                     transparent=False, fill_black_areas=False, expand_mask=0):
     """
     Remove background from bird image using rembg (AI-based segmentation).
     This provides professional-quality background removal using deep learning.
@@ -101,11 +100,20 @@ def remove_background(image, margin=10, iterations=10, bg_color=(128, 128, 128),
         fill_black_areas: If True, make black BACKGROUND/PADDING areas transparent - DEFAULT
                          Only affects areas already identified as background by rembg (alpha < 0.1)
                          BLACK FEATHERS/BIRDS are preserved! (they have alpha > 0.1 from rembg)
+        expand_mask: Pixels to expand the foreground mask (keeps more background around bird details like feet/beak)
+                     Positive values = keep more background, 0 = default rembg behavior
         
     Returns:
         numpy array: Image with replaced background (BGRA if transparent=True, BGR otherwise)
     """
     if image is None or image.size == 0:
+        return image
+    
+    # Check if rembg is available (dynamically check at runtime)
+    try:
+        from rembg import remove as rembg_remove
+    except ImportError:
+        print("⚠️ Warning: rembg not installed. Background removal disabled. Install with: pip install rembg")
         return image
     
     height, width = image.shape[:2]
@@ -141,6 +149,15 @@ def remove_background(image, margin=10, iterations=10, bg_color=(128, 128, 128),
         
         # Post-processing: Smooth alpha channel for better edges
         alpha_float = alpha.astype(np.float32) / 255.0
+        
+        # Expand mask if requested to keep more background around bird details
+        if expand_mask > 0:
+            # Dilate the mask to include more pixels around the bird
+            kernel_size = expand_mask * 2 + 1  # Convert to odd kernel size
+            kernel = np.ones((kernel_size, kernel_size), np.uint8)
+            alpha_binary = (alpha > 10).astype(np.uint8) * 255  # Threshold to binary
+            alpha_expanded = cv2.dilate(alpha_binary, kernel, iterations=1)
+            alpha_float = alpha_expanded.astype(np.float32) / 255.0
         
         # Apply slight Gaussian blur to alpha for smoother edges
         alpha_smooth = cv2.GaussianBlur(alpha_float, (3, 3), 0)
@@ -197,6 +214,50 @@ def remove_background(image, margin=10, iterations=10, bg_color=(128, 128, 128),
         print("Make sure rembg is installed: pip install rembg")
         return image
 
+def auto_crop_to_content(image, margin_percent=10):
+    """
+    Automatically crop image to non-transparent content with a margin.
+    
+    Args:
+        image: Image with alpha channel (BGRA) or BGR image
+        margin_percent: Percentage margin to add around content (default: 10%)
+    
+    Returns:
+        Cropped image with margin
+    """
+    if image is None or image.size == 0:
+        return image
+    
+    # Check if image has alpha channel
+    if image.shape[2] == 4:
+        # Use alpha channel to find content
+        alpha = image[:, :, 3]
+        # Find non-transparent pixels
+        coords = cv2.findNonZero(alpha)
+    else:
+        # For BGR images, find non-black pixels
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        coords = cv2.findNonZero(gray)
+    
+    if coords is None:
+        return image
+    
+    # Get bounding box of content
+    x, y, w, h = cv2.boundingRect(coords)
+    
+    # Add margin
+    margin_x = int(w * margin_percent / 100)
+    margin_y = int(h * margin_percent / 100)
+    
+    img_h, img_w = image.shape[:2]
+    x1 = max(0, x - margin_x)
+    y1 = max(0, y - margin_y)
+    x2 = min(img_w, x + w + margin_x)
+    y2 = min(img_h, y + h + margin_y)
+    
+    # Crop to content with margin
+    return image[y1:y2, x1:x2]
+
 def extract_birds_from_video(video_path, output_dir, bird_species=None, 
                              detection_model=None, species_model=None,
                              threshold=None, sample_rate=None, target_image_size=224,
@@ -207,7 +268,8 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                              min_sharpness=None, min_edge_quality=None,
                              save_quality_report=False, remove_bg=False,
                              bg_color=(128, 128, 128), bg_model='u2net',
-                             bg_transparent=False, bg_fill_black=False):
+                             bg_transparent=False, bg_fill_black=False,
+                             crop_padding=0):
     """
     Extract bird crops from video and save as images
     
@@ -232,6 +294,7 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
         min_sharpness: Minimum sharpness score (default: None = no filter)
         min_edge_quality: Minimum edge quality score (default: None = no filter)
         save_quality_report: Save detailed quality report (default: False)
+        crop_padding: Extra pixels to include around detected bird (default: 0)
     """
     # Use defaults if not specified
     detection_model = detection_model or DEFAULT_MODEL
@@ -395,6 +458,25 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                         x1, y1 = max(0, x1), max(0, y1)
                         x2, y2 = min(w, x2), min(h, y2)
                         
+                        # Apply padding/cropping to adjust context
+                        # Positive values = expand crop (more background)
+                        # Negative values = shrink crop (tighter around bird, less background)
+                        # Value is percentage-based: e.g., 50 = 50% larger, -20 = 20% smaller
+                        if crop_padding != 0:
+                            box_width = x2 - x1
+                            box_height = y2 - y1
+                            
+                            # Calculate padding as percentage of box size
+                            padding_factor = crop_padding / 100.0
+                            pad_x = int(box_width * padding_factor)
+                            pad_y = int(box_height * padding_factor)
+                            
+                            # Apply padding (can be negative to shrink)
+                            x1 = max(0, x1 - pad_x)
+                            y1 = max(0, y1 - pad_y)
+                            x2 = min(w, x2 + pad_x)
+                            y2 = min(h, y2 + pad_y)
+                        
                         # Crop bird
                         bird_crop = frame[y1:y2, x1:x2]
                         
@@ -463,7 +545,11 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                             
                             # Check for duplicates if enabled
                             if deduplicate:
-                                bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2RGB))
+                                # Check if image has alpha channel (BGRA) - preserve it!
+                                if bird_crop.shape[2] == 4:
+                                    bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGRA2RGBA))
+                                else:
+                                    bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2RGB))
                                 img_hash = imagehash.phash(bird_pil)
                                 
                                 # Check if similar image already exists
@@ -498,29 +584,39 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                             else:
                                 save_dir = output_path
                             
+                            # Use PNG for transparent background, JPG otherwise
+                            file_ext = "png" if (remove_bg and bg_transparent) else "jpg"
+                            
                             # Filename: session_id + unique_id + metadata
                             if species_name and species_model:
-                                filename = f"{session_id}_{unique_id}_f{frame_num:06d}_det{conf:.2f}_cls{species_conf:.2f}.jpg"
+                                filename = f"{session_id}_{unique_id}_f{frame_num:06d}_det{conf:.2f}_cls{species_conf:.2f}.{file_ext}"
                             else:
-                                # Use PNG for transparent background, JPG otherwise
-                                file_ext = "png" if (remove_bg and bg_transparent) else "jpg"
                                 filename = f"{session_id}_{unique_id}_f{frame_num:06d}_c{conf:.2f}.{file_ext}"
                             
                             save_path = save_dir / filename
                             
                             # Apply background removal if requested
                             if remove_bg:
+                                # Use crop_padding to control mask expansion
+                                # Positive values = keep more background around bird details
+                                expand_pixels = max(0, crop_padding) if crop_padding > 0 else 0
                                 bird_crop = remove_background(bird_crop, bg_color=bg_color, model_name=bg_model,
-                                                            transparent=bg_transparent, fill_black_areas=bg_fill_black)
+                                                            transparent=bg_transparent, fill_black_areas=bg_fill_black,
+                                                            expand_mask=expand_pixels)
                             
                             # Resize to target size for optimal training
                             if resize_to_target:
-                                if not deduplicate:  # Only create if not already created for dedup check
-                                    # Check if image has alpha channel (BGRA)
-                                    if bird_crop.shape[2] == 4:
-                                        bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGRA2RGBA))
-                                    else:
-                                        bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2RGB))
+                                # IMPORTANT: (Re)create PIL image after potential background removal
+                                # to ensure correct color mode (RGBA for transparent, RGB otherwise)
+                                # Delete old bird_pil from deduplication check if it exists
+                                if 'bird_pil' in locals():
+                                    del bird_pil
+                                
+                                # Check if image has alpha channel (BGRA) after background removal
+                                if bird_crop.shape[2] == 4:
+                                    bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGRA2RGBA))
+                                else:
+                                    bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2RGB))
                                 # Resize maintaining aspect ratio with padding (better quality than distortion)
                                 bird_pil.thumbnail((target_image_size, target_image_size), Image.Resampling.LANCZOS)
                                 

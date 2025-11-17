@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.15] - 2025-11-17
+
+### Added
+- **🎯 Crop Padding Feature**: New `--crop-padding` parameter for better background removal
+  - Expands rembg foreground mask to preserve bird details (feet, beak, feathers)
+  - Prevents important details from being cut off by aggressive background removal
+  - Recommended values: 5-20 pixels for optimal results
+  - Example: `--crop-padding 20` keeps 20px more background around detected bird
+  - Works only with `--remove-background` flag
+- **🎨 Random Background Augmentation**: Training now uses random backgrounds for transparent images
+  - When training with PNG/transparent images, applies random gray/black/white backgrounds
+  - Forces model to focus on bird features instead of background color
+  - Improves model robustness against different backgrounds
+  - Automatically applied during training phase only (validation uses neutral gray)
+- **🔧 ARM64/Raspberry Pi Support**: Added `onnxruntime` as explicit dependency
+  - Fixes rembg installation issues on ARM64 architectures (Raspberry Pi, etc.)
+  - `onnxruntime>=1.15.0` now automatically installed with package
+  - Dynamic rembg import check at runtime for better error handling
+
+### Changed
+- **📝 Improved Help Text**: Updated `--crop-padding` help documentation
+  - Clearer explanation of mask expansion functionality
+  - Better guidance for recommended values
+  - Explains interaction with `--remove-background` flag
+
+### Fixed
+- **🐛 PNG Transparency with Species Classification**: Fixed transparent PNG export when using `--species-model` + `--bg-transparent` + `--deduplicate`
+  - Fixed filename extension determination happening after filename creation (was hardcoded to .jpg)
+  - Fixed deduplicate creating RGB PIL images before background removal (now preserves RGBA)
+  - Fixed Python variable caching preventing proper RGBA mode after background removal (explicit deletion)
+  - All three fixes required for full PNG transparency support with all feature combinations
+  - Verified: PNG images now correctly saved with RGBA format in all scenarios
+- **🖼️ PNG Support in Dataset Organizer**: Added PNG file support to `vogel-trainer organize`
+  - Previously only searched for .jpg files, now supports both .jpg and .png
+  - Enables organizing datasets created with `--bg-transparent` flag
+  - Both direct species folders and legacy video folders now support PNG
+- **🐛 Dynamic Import**: Fixed rembg import detection for runtime-installed packages
+  - Moved import check inside function instead of module-level
+  - Allows pip install after module import without restart
+  - Better error messages when rembg is not available
+
 ## [0.1.14] - 2025-11-16
 
 ### Changed

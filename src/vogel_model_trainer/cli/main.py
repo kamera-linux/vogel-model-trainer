@@ -126,7 +126,8 @@ def extract_command(args):
                 }[args.bg_color],
                 bg_model=args.bg_model,
                 bg_transparent=args.bg_transparent,
-                bg_fill_black=args.bg_fill_black
+                bg_fill_black=args.bg_fill_black,
+                crop_padding=args.crop_padding
             )
     
     finally:
@@ -512,7 +513,7 @@ For more information, visit:
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 0.1.14"
+        version="%(prog)s 0.1.15"
     )
     
     subparsers = parser.add_subparsers(
@@ -672,6 +673,12 @@ For more information, visit:
         dest="bg_fill_black",
         action="store_false",
         help="Disable filling black padding areas with transparency (keeps black boxes opaque)"
+    )
+    extract_parser.add_argument(
+        "--crop-padding",
+        type=int,
+        default=0,
+        help="With --remove-background: Pixels to expand mask around bird (keeps more background near feet/beak). Recommended: 5-20. Without: adjusts detection box percentage."
     )
     extract_parser.add_argument(
         "--recursive", "-r",

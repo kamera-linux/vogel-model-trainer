@@ -40,6 +40,7 @@ from torchvision.transforms import (
 import numpy as np
 from PIL import Image
 import json
+import random
 
 # Configuration
 DATA_DIR = Path("/home/imme/vogel-training-data/organized")
@@ -145,12 +146,34 @@ def transform_function(examples, processor, is_training=True, augmentation_stren
         augmentation_strength: Augmentation intensity level
         image_size: Target image size
     """
+    # Define background color palette for random backgrounds
+    BACKGROUND_COLORS = [
+        (128, 128, 128),  # Gray (neutral)
+        (255, 255, 255),  # White
+        (0, 0, 0),        # Black
+        (200, 200, 200),  # Light gray
+        (50, 50, 50),     # Dark gray
+        (150, 150, 150),  # Medium gray
+        (100, 120, 140),  # Blue-gray
+        (140, 130, 120),  # Brown-gray
+        (120, 140, 120),  # Green-gray
+    ]
+    
     # Process each image and collect pixel values
     pixel_values = []
     
     for img in examples["image"]:
-        # Convert to RGB
-        img = img.convert("RGB")
+        # Handle transparent images with random background augmentation
+        if img.mode == "RGBA" and is_training:
+            # Random background color for training (helps model ignore background)
+            bg_color = random.choice(BACKGROUND_COLORS)
+            background = Image.new("RGB", img.size, bg_color)
+            # Paste bird using alpha channel as mask
+            background.paste(img, mask=img.split()[3])
+            img = background
+        else:
+            # Convert to RGB (for non-transparent or validation/test)
+            img = img.convert("RGB")
         
         # Apply data augmentation for training only
         if is_training and augmentation_strength != "none":

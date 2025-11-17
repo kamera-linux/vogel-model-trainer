@@ -39,10 +39,12 @@ def collect_images_by_species(source_dir):
         images = []
         
         # Check if it's a direct species folder (new format)
+        # Support both JPG and PNG files
         jpg_files = list(item.glob("*.jpg"))
-        if jpg_files:
+        png_files = list(item.glob("*.png"))
+        if jpg_files or png_files:
             species_name = item.name
-            images = jpg_files
+            images = jpg_files + png_files
         
         # Also check for old format: species_video* folders
         if not species_name:
@@ -52,7 +54,7 @@ def collect_images_by_species(source_dir):
                                      "gruenfink", "haussperling", "kernbeisser", "star", "stieglitz"]:
                 if item.name.startswith(potential_species):
                     species_name = potential_species
-                    images = list(item.glob("*.jpg"))
+                    images = list(item.glob("*.jpg")) + list(item.glob("*.png"))
                     break
         
         if species_name and images:

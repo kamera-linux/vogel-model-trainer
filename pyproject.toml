@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vogel-model-trainer"
-version = "0.1.14"
+version = "0.1.15"
 description = "A tool to extract bird images from videos and train custom species classifiers"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -40,6 +40,7 @@ dependencies = [
     "numpy>=1.24.0",
     "imagehash>=4.3.0",
     "rembg>=2.0.50",
+    "onnxruntime>=1.15.0",  # Required for rembg on ARM64 (Raspberry Pi, etc.)
 ]
 
 [project.optional-dependencies]
