@@ -13,6 +13,7 @@ import argparse
 import sys
 from pathlib import Path
 from datetime import datetime
+from vogel_model_trainer import __version__
 
 
 class Tee:
@@ -31,111 +32,98 @@ class Tee:
 
 
 def extract_command(args):
-    """Execute the extract command."""
-    from vogel_model_trainer.core import extractor
-    from vogel_model_trainer.i18n import _
+    """Execute the extract command by calling extractor.main() directly."""
+    # Delegate to extractor.main() which handles videos, images, and convert mode
+    # This ensures we use the full-featured implementation
+    import sys
     
-    # Setup logging if requested
-    log_file = None
-    original_stdout = sys.stdout
-    original_stderr = sys.stderr
+    # Build arguments list for extractor.main()
+    cli_args = []
     
-    if args.log:
-        try:
-            # Create log directory structure: /var/log/vogel-kamera-linux/YYYY/KWXX/
-            now = datetime.now()
-            year = now.strftime('%Y')
-            week = now.strftime('%V')
-            timestamp = now.strftime('%Y%m%d_%H%M%S')
-            
-            log_dir = Path(f'/var/log/vogel-kamera-linux/{year}/KW{week}')
-            log_dir.mkdir(parents=True, exist_ok=True)
-            
-            log_file_path = log_dir / f'{timestamp}_extract.log'
-            log_file = open(log_file_path, 'w', encoding='utf-8')
-            
-            # Redirect stdout and stderr to both console and file
-            sys.stdout = Tee(original_stdout, log_file)
-            sys.stderr = Tee(original_stderr, log_file)
-            
-            print(_('log_file', path=str(log_file_path)))
-            
-        except PermissionError:
-            print(f"⚠️  {_('log_permission_denied')}", file=sys.stderr)
-            print(f"   {_('log_permission_hint')}", file=sys.stderr)
-            print("   sudo mkdir -p /var/log/vogel-kamera-linux && sudo chown $USER /var/log/vogel-kamera-linux")
-            return 1
+    # Convert mode or extraction mode
+    if hasattr(args, 'convert') and args.convert:
+        cli_args.append('--convert')
+        if args.source:
+            cli_args.extend(['--source', args.source])
+        if args.target:
+            cli_args.extend(['--target', args.target])
+    else:
+        # Extraction mode - input file/directory
+        if args.video:
+            cli_args.append(args.video)
+        if args.folder:
+            cli_args.extend(['--folder', args.folder])
+        if args.bird:
+            cli_args.extend(['--bird', args.bird])
+    
+    # Common arguments
+    if hasattr(args, 'species_model') and args.species_model:
+        cli_args.extend(['--species-model', args.species_model])
+    if hasattr(args, 'detection_model') and args.detection_model:
+        cli_args.extend(['--detection-model', args.detection_model])
+    if hasattr(args, 'threshold') and args.threshold is not None:
+        cli_args.extend(['--threshold', str(args.threshold)])
+    if hasattr(args, 'species_threshold') and args.species_threshold is not None:
+        cli_args.extend(['--species-threshold', str(args.species_threshold)])
+    if hasattr(args, 'sample_rate') and args.sample_rate is not None:
+        cli_args.extend(['--sample-rate', str(args.sample_rate)])
+    if hasattr(args, 'recursive') and args.recursive:
+        cli_args.append('--recursive')
+    if hasattr(args, 'no_resize') and args.no_resize:
+        cli_args.append('--no-resize')
+    
+    # Quality parameters (only those supported by extractor.main())
+    if hasattr(args, 'quality') and args.quality is not None:
+        cli_args.extend(['--quality', str(args.quality)])
+    if hasattr(args, 'min_sharpness') and args.min_sharpness is not None:
+        cli_args.extend(['--min-sharpness', str(args.min_sharpness)])
+    if hasattr(args, 'min_edge_quality') and args.min_edge_quality is not None:
+        cli_args.extend(['--min-edge-quality', str(args.min_edge_quality)])
+    if hasattr(args, 'save_quality_report') and args.save_quality_report:
+        cli_args.append('--quality-report')
+    
+    # Deduplication
+    if hasattr(args, 'deduplicate') and args.deduplicate:
+        cli_args.append('--deduplicate')
+    if hasattr(args, 'similarity_threshold') and args.similarity_threshold is not None:
+        cli_args.extend(['--similarity-threshold', str(args.similarity_threshold)])
+    
+    # Background removal
+    if hasattr(args, 'remove_background') and args.remove_background:
+        cli_args.append('--bg-remove')
+    if hasattr(args, 'bg_color') and args.bg_color:
+        # Convert color names to RGB values
+        color_map = {
+            'white': '255,255,255',
+            'black': '0,0,0',
+            'gray': '128,128,128',
+            'green-screen': '0,255,0',
+            'blue-screen': '0,0,255'
+        }
+        bg_color_value = color_map.get(args.bg_color, args.bg_color)
+        cli_args.extend(['--bg-color', bg_color_value])
+    if hasattr(args, 'bg_model') and args.bg_model:
+        cli_args.extend(['--bg-model', args.bg_model])
+    if hasattr(args, 'bg_transparent') and args.bg_transparent:
+        cli_args.append('--bg-transparent')
+    if hasattr(args, 'bg_fill_black') and args.bg_fill_black:
+        cli_args.append('--bg-fill-black')
+    if hasattr(args, 'crop_padding') and args.crop_padding is not None:
+        cli_args.extend(['--crop-padding', str(args.crop_padding)])
+    
+    # Logging
+    if hasattr(args, 'log') and args.log:
+        cli_args.append('--log')
+    
+    # Override sys.argv and call extractor.main()
+    original_argv = sys.argv
+    sys.argv = ['extractor.py'] + cli_args
     
     try:
-        print(_('cli_extracting_from', path=args.video))
-        print(_('cli_output_folder', path=args.folder))
-        
-        if args.bird:
-            print(_('cli_species', species=args.bird))
-        if args.species_model:
-            print(_('cli_using_classifier', path=args.species_model))
-        
-        # Handle glob patterns and recursive search
-        import glob
-        from pathlib import Path
-        
-        video_files = []
-        if args.recursive:
-            # Recursive search
-            video_path = Path(args.video)
-            if video_path.is_dir():
-                for ext in ['*.mp4', '*.avi', '*.mov', '*.mkv']:
-                    video_files.extend(video_path.rglob(ext))
-            else:
-                video_files = [args.video]
-        else:
-            # Glob pattern or single file
-            matches = glob.glob(args.video, recursive=False)
-            video_files = matches if matches else [args.video]
-        
-        # Process each video file
-        for video_file in video_files:
-            print(_('cli_processing_video', path=video_file))
-            extractor.extract_birds_from_video(
-                video_path=str(video_file),
-                output_dir=args.folder,
-                bird_species=args.bird,
-                detection_model=args.detection_model,
-                species_model=args.species_model,
-                threshold=args.threshold,
-                sample_rate=args.sample_rate,
-                target_image_size=args.image_size,
-                species_threshold=args.species_threshold,
-                max_detections=args.max_detections,
-                min_box_size=args.min_box_size,
-                max_box_size=args.max_box_size,
-                quality=args.quality,
-                skip_blurry=args.skip_blurry,
-                deduplicate=args.deduplicate,
-                similarity_threshold=args.similarity_threshold,
-                min_sharpness=args.min_sharpness,
-                min_edge_quality=args.min_edge_quality,
-                save_quality_report=args.save_quality_report,
-                remove_bg=args.remove_background,
-                bg_color={
-                    'white': (255, 255, 255), 
-                    'black': (0, 0, 0), 
-                    'gray': (128, 128, 128),
-                    'green-screen': (0, 255, 0),
-                    'blue-screen': (255, 0, 0)
-                }[args.bg_color],
-                bg_model=args.bg_model,
-                bg_transparent=args.bg_transparent,
-                bg_fill_black=args.bg_fill_black,
-                crop_padding=args.crop_padding
-            )
-    
+        from vogel_model_trainer.core import extractor
+        extractor.main()
     finally:
-        # Restore original stdout/stderr and close log file
-        if log_file:
-            sys.stdout = original_stdout
-            sys.stderr = original_stderr
-            log_file.close()
+        sys.argv = original_argv
 
 
 def organize_command(args):
@@ -513,7 +501,7 @@ For more information, visit:
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 0.1.15"
+        version=f"%(prog)s {__version__}"
     )
     
     subparsers = parser.add_subparsers(

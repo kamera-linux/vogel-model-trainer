@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.17] - 2025-11-18
+
+### Fixed
+- **🐛 CLI Image Extraction Bug**: Fixed critical bug where CLI `extract` command only processed videos
+  - CLI now properly delegates to `extractor.main()` for full video/image/convert mode support
+  - Fixed argument mapping between CLI parser and extractor.main()
+  - Fixed background color conversion (e.g., 'gray' → '128,128,128')
+  - All image extraction features now work via `vogel-trainer extract` command
+- **📌 Version Management**: CLI version now dynamically loaded from `__version__.py`
+  - No more hardcoded version strings in CLI code
+  - Single source of truth for version number
+
 ## [0.1.16] - 2025-11-18
 
 ### Added
