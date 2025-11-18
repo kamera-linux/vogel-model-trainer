@@ -1409,7 +1409,7 @@ Examples:
         'detection_model': args.detection_model,
         'species_model': args.species_model,
         'threshold': args.threshold,
-        'resize_to_target': not args.no_resize,
+        'target_image_size': TARGET_IMAGE_SIZE if not args.no_resize else 0,
         'species_threshold': args.species_threshold,
         'deduplicate': args.deduplicate,
         'similarity_threshold': args.similarity_threshold,

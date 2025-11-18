@@ -62,10 +62,10 @@ TRANSLATIONS = {
         'next_step_manual_sort': '   2. Create subdirectories for each species and move images into correct folders',
         'next_step_organize': '   3. Use organize_dataset.py to create train/val split',
         'next_step_train': '   4. Train improved model with new data!',
-        'processing_video': '\n{"="*70}\n📹 Processing video {idx}/{total}: {name}\n{"="*70}',
+        'processing_video': '📹 Processing video {idx}/{total}: {name}',
         'error_processing': '\n❌ Error processing {name}: {error}',
         'continuing': '   Continuing with next video...',
-        'all_videos_processed': '\n{"="*70}\n✅ All videos processed!\n   📁 Output directory: {path}\n{"="*70}',
+        'all_videos_processed': '✅ All videos processed!\n   📁 Output directory: {path}',
         
         # Organization
         'organizing_dataset': '📊 Organizing dataset: {path}',
@@ -337,10 +337,10 @@ TRANSLATIONS = {
         'next_step_manual_sort': '   2. Erstelle Unterverzeichnisse für jede Art und verschiebe Bilder in korrekte Ordner',
         'next_step_organize': '   3. Nutze organize_dataset.py um Train/Val Split zu erstellen',
         'next_step_train': '   4. Trainiere verbessertes Modell mit neuen Daten!',
-        'processing_video': '\n{"="*70}\n📹 Verarbeite Video {idx}/{total}: {name}\n{"="*70}',
+        'processing_video': '📹 Verarbeite Video {idx}/{total}: {name}',
         'error_processing': '\n❌ Fehler beim Verarbeiten von {name}: {error}',
         'continuing': '   Fahre mit nächstem Video fort...',
-        'all_videos_processed': '\n{"="*70}\n✅ Alle Videos verarbeitet!\n   📁 Ausgabe-Verzeichnis: {path}\n{"="*70}',
+        'all_videos_processed': '✅ Alle Videos verarbeitet!\n   📁 Ausgabe-Verzeichnis: {path}',
         
         # Organization
         'organizing_dataset': '📊 Organisiere Dataset: {path}',
@@ -612,10 +612,10 @@ TRANSLATIONS = {
         'next_step_manual_sort': '   2. 各種のサブディレクトリを作成し、画像を正しいフォルダに移動',
         'next_step_organize': '   3. organize_dataset.pyを使用してトレーニング/検証分割を作成',
         'next_step_train': '   4. 新しいデータで改善されたモデルをトレーニング！',
-        'processing_video': '\n{"="*70}\n📹 ビデオ処理中 {idx}/{total}：{name}\n{"="*70}',
-        'error_processing': '\n❌ {name}の処理エラー：{error}',
-        'continuing': '   次のビデオに続けます...',
-        'all_videos_processed': '\n{"="*70}\n✅ すべてのビデオを処理しました！\n   📁 出力ディレクトリ：{path}\n{"="*70}',
+        'processing_video': '📹 ビデオ処理中 {idx}/{total}：{name}',
+        'error_processing': '\n❌ {name}の処理中にエラーが発生しました：{error}',
+        'continuing': '   次のビデオに進みます...',
+        'all_videos_processed': '✅ すべてのビデオを処理しました！\n   📁 出力ディレクトリ：{path}',
         
         # Organization
         'organizing_dataset': '📊 データセットを整理中：{path}',
