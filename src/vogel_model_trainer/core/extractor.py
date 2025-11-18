@@ -258,6 +258,215 @@ def auto_crop_to_content(image, margin_percent=10):
     # Crop to content with margin
     return image[y1:y2, x1:x2]
 
+def convert_bird_images(source_dir, target_dir, remove_bg=True, bg_color=(128, 128, 128),
+                       bg_model='u2net', bg_transparent=True, bg_fill_black=False,
+                       crop_padding=0, min_sharpness=None, min_edge_quality=None,
+                       quality_report=False, quality=95, deduplicate=False,
+                       similarity_threshold=5, resize_to_target=True, target_image_size=224):
+    """
+    Convert already-extracted bird images with consistent processing.
+    Useful for normalizing existing training datasets.
+    
+    This function:
+    - Loads existing bird crop images (no detection needed)
+    - Applies background removal, quality filtering, etc.
+    - Maintains original folder structure (species subdirectories)
+    - Saves to new target directory
+    
+    Args:
+        source_dir: Source directory with bird images (can have subdirectories for species)
+        target_dir: Target directory for converted images (will mirror source structure)
+        remove_bg: Apply background removal (default: True)
+        bg_color: Background color as BGR tuple (default: gray)
+        bg_model: rembg model to use (default: 'u2net')
+        bg_transparent: Use transparent background (default: True)
+        bg_fill_black: Make black areas transparent (default: False)
+        crop_padding: Extra pixels around image (default: 0)
+        min_sharpness: Minimum sharpness filter (default: None)
+        min_edge_quality: Minimum edge quality filter (default: None)
+        quality_report: Generate quality statistics (default: False)
+        quality: JPEG quality for non-transparent (default: 95)
+        deduplicate: Skip duplicate images (default: False)
+        similarity_threshold: Hamming distance for duplicates (default: 5)
+        resize_to_target: Resize images (default: True)
+        target_image_size: Target size in pixels (default: 224)
+    """
+    source_path = Path(source_dir).expanduser()
+    target_path = Path(target_dir).expanduser()
+    
+    if not source_path.exists():
+        print(f"❌ Source directory not found: {source_dir}")
+        return
+    
+    # Find all image files recursively
+    image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.JPG', '.JPEG', '.PNG'}
+    image_files = []
+    
+    for ext in image_extensions:
+        image_files.extend(source_path.rglob(f'*{ext}'))
+    
+    if not image_files:
+        print(f"❌ No images found in: {source_dir}")
+        return
+    
+    print(f"🖼️  Found {len(image_files)} image(s) to convert")
+    print(f"📁 Source: {source_path}")
+    print(f"📁 Target: {target_path}")
+    print()
+    
+    # Statistics
+    converted_count = 0
+    skipped_quality = 0
+    skipped_duplicate = 0
+    hash_cache = {}
+    quality_stats = {
+        'accepted': [],
+        'rejected_blur': [],
+        'rejected_edges': []
+    }
+    
+    # Process each image
+    for idx, img_file in enumerate(image_files, 1):
+        # Calculate relative path to maintain folder structure
+        rel_path = img_file.relative_to(source_path)
+        target_file = target_path / rel_path
+        
+        # Create target directory
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Progress
+        if idx % 100 == 0 or idx == 1:
+            print(f"Processing {idx}/{len(image_files)}: {rel_path}")
+        
+        # Load image
+        image = cv2.imread(str(img_file))
+        if image is None:
+            print(f"⚠️  Failed to load: {rel_path}")
+            continue
+        
+        # Apply crop padding if specified
+        if crop_padding > 0:
+            # Add padding by creating larger canvas
+            h, w = image.shape[:2]
+            new_h, new_w = h + 2 * crop_padding, w + 2 * crop_padding
+            
+            if image.shape[2] == 4:  # BGRA
+                padded = np.zeros((new_h, new_w, 4), dtype=np.uint8)
+            else:  # BGR
+                padded = np.full((new_h, new_w, 3), bg_color, dtype=np.uint8)
+            
+            # Place original image in center
+            padded[crop_padding:crop_padding+h, crop_padding:crop_padding+w] = image
+            image = padded
+        
+        # Quality filtering
+        if min_sharpness is not None or min_edge_quality is not None:
+            quality_metrics = calculate_motion_quality(image)
+            is_acceptable, reason = is_motion_acceptable(quality_metrics, min_sharpness, min_edge_quality)
+            
+            if not is_acceptable:
+                skipped_quality += 1
+                if reason == 'low_sharpness':
+                    quality_stats['rejected_blur'].append(quality_metrics['overall'])
+                elif reason == 'poor_edges':
+                    quality_stats['rejected_edges'].append(quality_metrics['overall'])
+                continue
+            else:
+                quality_stats['accepted'].append(quality_metrics['overall'])
+        
+        # Background removal
+        if remove_bg:
+            image = remove_background(
+                image,
+                bg_color=bg_color,
+                model_name=bg_model,
+                transparent=bg_transparent,
+                fill_black_areas=bg_fill_black,
+                expand_mask=0
+            )
+        
+        # Resize if needed
+        if resize_to_target and target_image_size > 0:
+            image = cv2.resize(image, (target_image_size, target_image_size), interpolation=cv2.INTER_LANCZOS4)
+        
+        # Deduplication
+        if deduplicate:
+            if image.shape[2] == 4:
+                img_pil = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGRA2RGBA))
+            else:
+                img_pil = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+            
+            img_hash = imagehash.phash(img_pil)
+            
+            # Check against existing hashes
+            is_duplicate = False
+            for cached_path, cached_hash in hash_cache.items():
+                if img_hash - cached_hash <= similarity_threshold:
+                    is_duplicate = True
+                    skipped_duplicate += 1
+                    break
+            
+            if is_duplicate:
+                continue
+            
+            hash_cache[str(target_file)] = img_hash
+        
+        # Save image
+        if bg_transparent and remove_bg:
+            # Save as PNG with transparency
+            save_path = target_file.with_suffix('.png')
+            cv2.imwrite(str(save_path), image, [cv2.IMWRITE_PNG_COMPRESSION, 6])
+        else:
+            # Save as JPEG
+            save_path = target_file.with_suffix('.jpg')
+            # Convert BGRA to BGR if needed
+            if image.shape[2] == 4:
+                image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+            cv2.imwrite(str(save_path), image, [cv2.IMWRITE_JPEG_QUALITY, quality])
+        
+        converted_count += 1
+    
+    # Print summary
+    print("\n" + "=" * 60)
+    print("✅ Conversion complete!")
+    print("=" * 60)
+    print(f"📁 Target directory: {target_path}")
+    print(f"🖼️  Total processed: {len(image_files)}")
+    print(f"✅ Converted: {converted_count}")
+    
+    if skipped_quality > 0:
+        print(f"⏭️  Skipped (quality): {skipped_quality}")
+    
+    if skipped_duplicate > 0:
+        print(f"⏭️  Skipped (duplicate): {skipped_duplicate}")
+    
+    # Quality report
+    if quality_report and quality_stats['accepted']:
+        print("\n" + "=" * 60)
+        print("📊 Quality Report")
+        print("=" * 60)
+        
+        total = len(image_files)
+        accepted = len(quality_stats['accepted'])
+        rejected = skipped_quality
+        
+        print(f"Total images: {total}")
+        print(f"Accepted: {accepted} ({accepted/total*100:.1f}%)")
+        print(f"Rejected: {rejected} ({rejected/total*100:.1f}%)")
+        
+        if quality_stats['accepted']:
+            avg_quality = np.mean(quality_stats['accepted'])
+            print(f"Average quality (accepted): {avg_quality:.2f}")
+        
+        if quality_stats['rejected_blur']:
+            avg_blur = np.mean(quality_stats['rejected_blur'])
+            print(f"Average quality (rejected blur): {avg_blur:.2f}")
+        
+        if quality_stats['rejected_edges']:
+            avg_edges = np.mean(quality_stats['rejected_edges'])
+            print(f"Average quality (rejected edges): {avg_edges:.2f}")
+
+
 def extract_birds_from_video(video_path, output_dir, bird_species=None, 
                              detection_model=None, species_model=None,
                              threshold=None, sample_rate=None, target_image_size=224,
@@ -760,41 +969,280 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
         print(_('next_step_train'))
 
 
+def extract_birds_from_image(image_path, output_dir, bird_species=None,
+                            detection_model=None, species_model=None,
+                            threshold=None, target_image_size=224,
+                            species_threshold=None, target_class=14,
+                            max_detections=10, min_box_size=50, max_box_size=800,
+                            quality=95, deduplicate=False, similarity_threshold=5,
+                            min_sharpness=None, min_edge_quality=None,
+                            save_quality_report=False, remove_bg=False,
+                            bg_color=(128, 128, 128), bg_model='u2net',
+                            bg_transparent=False, bg_fill_black=False,
+                            crop_padding=0, resize_to_target=True):
+    """
+    Extract bird crops from a single image and save as images.
+    Similar to extract_birds_from_video() but for static images.
+    
+    Args:
+        image_path: Path to image file
+        (all other args same as extract_birds_from_video)
+    """
+    # Use defaults if not specified
+    detection_model = detection_model or DEFAULT_MODEL
+    threshold = threshold if threshold is not None else DEFAULT_THRESHOLD
+    
+    # Load image
+    frame = cv2.imread(str(image_path))
+    if frame is None:
+        print(f"❌ Failed to load image: {image_path}")
+        return
+    
+    # Initialize YOLO model
+    print(_('loading_model', model=detection_model))
+    model = YOLO(detection_model)
+    
+    # Generate session ID
+    session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Setup output directory
+    if bird_species:
+        output_path = Path(output_dir) / bird_species
+    else:
+        output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    # Initialize species classifier if provided
+    species_processor = None
+    species_classifier = None
+    if species_model:
+        print(_('loading_species_model', model=species_model))
+        species_processor = AutoImageProcessor.from_pretrained(species_model)
+        species_classifier = AutoModelForImageClassification.from_pretrained(species_model)
+    
+    # Statistics
+    bird_count = 0
+    detected_count = 0
+    skipped_count = 0
+    duplicate_count = 0
+    motion_rejected_count = 0
+    species_counts = {}
+    hash_cache = {}
+    quality_stats = {
+        'accepted': [],
+        'rejected_blur': [],
+        'rejected_edges': []
+    }
+    
+    # Run detection on the image
+    results = model(frame, conf=threshold, classes=[target_class], max_det=max_detections, verbose=False)
+    
+    if len(results) > 0 and len(results[0].boxes) > 0:
+        boxes = results[0].boxes
+        
+        for box_idx, box in enumerate(boxes):
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            conf = float(box.conf[0])
+            
+            # Validate box size
+            box_width = x2 - x1
+            box_height = y2 - y1
+            if box_width < min_box_size or box_height < min_box_size:
+                continue
+            if box_width > max_box_size or box_height > max_box_size:
+                continue
+            
+            detected_count += 1
+            
+            # Apply crop padding
+            if crop_padding > 0:
+                frame_h, frame_w = frame.shape[:2]
+                x1 = max(0, x1 - crop_padding)
+                y1 = max(0, y1 - crop_padding)
+                x2 = min(frame_w, x2 + crop_padding)
+                y2 = min(frame_h, y2 + crop_padding)
+            
+            # Extract crop
+            bird_crop = frame[y1:y2, x1:x2].copy()
+            
+            # Check motion/blur quality if filters enabled
+            if min_sharpness is not None or min_edge_quality is not None:
+                quality_metrics = calculate_motion_quality(bird_crop)
+                is_acceptable, reason = is_motion_acceptable(quality_metrics, min_sharpness, min_edge_quality)
+                
+                if not is_acceptable:
+                    motion_rejected_count += 1
+                    if reason == 'low_sharpness':
+                        quality_stats['rejected_blur'].append(quality_metrics['overall'])
+                    elif reason == 'poor_edges':
+                        quality_stats['rejected_edges'].append(quality_metrics['overall'])
+                    continue
+                else:
+                    quality_stats['accepted'].append(quality_metrics['overall'])
+            
+            # Background removal
+            if remove_bg:
+                bird_crop = remove_background(
+                    bird_crop,
+                    bg_color=bg_color,
+                    model_name=bg_model,
+                    transparent=bg_transparent,
+                    fill_black_areas=bg_fill_black,
+                    expand_mask=0
+                )
+            
+            # Species classification
+            species_name = None
+            species_conf = 0.0
+            
+            if species_classifier is not None:
+                bird_pil = Image.fromarray(cv2.cvtColor(bird_crop if bird_crop.shape[2] == 3 else bird_crop[:,:,:3], cv2.COLOR_BGR2RGB))
+                inputs = species_processor(images=bird_pil, return_tensors="pt")
+                with torch.no_grad():
+                    outputs = species_classifier(**inputs)
+                    logits = outputs.logits
+                    probs = torch.nn.functional.softmax(logits, dim=-1)
+                    predicted_class_idx = logits.argmax(-1).item()
+                    species_conf = probs[0][predicted_class_idx].item()
+                    species_name = species_classifier.config.id2label[predicted_class_idx]
+                
+                if species_threshold is not None and species_conf < species_threshold:
+                    skipped_count += 1
+                    continue
+                
+                species_counts[species_name] = species_counts.get(species_name, 0) + 1
+                save_dir = Path(output_dir) / species_name
+                save_dir.mkdir(parents=True, exist_ok=True)
+            else:
+                save_dir = output_path
+            
+            # Deduplicate
+            skip_duplicate = False
+            if deduplicate:
+                if bird_crop.shape[2] == 4:
+                    bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGRA2RGBA))
+                else:
+                    bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2RGB))
+                
+                img_hash = imagehash.phash(bird_pil)
+                
+                for cached_path, cached_hash in hash_cache.items():
+                    if img_hash - cached_hash <= similarity_threshold:
+                        skip_duplicate = True
+                        duplicate_count += 1
+                        break
+            
+            if not skip_duplicate:
+                bird_count += 1
+                unique_id = str(uuid.uuid4())[:8]
+                
+                if species_name:
+                    filename = f"{session_id}_{unique_id}_det{conf:.2f}_cls{species_conf:.2f}"
+                else:
+                    filename = f"{session_id}_{unique_id}_c{conf:.2f}"
+                
+                save_path = save_dir / filename
+                
+                # Resize if needed
+                if resize_to_target and target_image_size > 0:
+                    bird_crop = cv2.resize(bird_crop, (target_image_size, target_image_size), interpolation=cv2.INTER_LANCZOS4)
+                
+                # Save
+                if remove_bg and bg_transparent:
+                    save_path = save_path.with_suffix('.png')
+                    cv2.imwrite(str(save_path), bird_crop, [cv2.IMWRITE_PNG_COMPRESSION, 6])
+                else:
+                    save_path = save_path.with_suffix('.jpg')
+                    cv2.imwrite(str(save_path), bird_crop, [cv2.IMWRITE_JPEG_QUALITY, quality])
+                
+                if deduplicate:
+                    if not 'bird_pil' in locals():
+                        if bird_crop.shape[2] == 4:
+                            bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGRA2RGBA))
+                        else:
+                            bird_pil = Image.fromarray(cv2.cvtColor(bird_crop, cv2.COLOR_BGR2RGB))
+                    hash_cache[str(save_path)] = img_hash
+                
+                if species_name:
+                    print(_('bird_extracted', count=bird_count, species=species_name, conf=species_conf, frame=Path(image_path).name))
+                else:
+                    print(_('bird_extracted_simple', count=bird_count, frame=Path(image_path).name, conf=conf))
+    
+    # Print summary
+    print(_('extraction_complete'))
+    print(_('output_directory', path=output_path))
+    print(_('detected_birds_total', count=detected_count))
+    print(_('exported_birds_total', count=bird_count))
+    
+    if species_threshold is not None and skipped_count > 0:
+        print(_('skipped_birds_total', count=skipped_count, threshold=species_threshold))
+    
+    if deduplicate and duplicate_count > 0:
+        total_checked = bird_count + duplicate_count
+        percent = (duplicate_count / total_checked * 100) if total_checked > 0 else 0
+        print(_('dedup_stats'))
+        print(_('dedup_stats_checked', count=total_checked))
+        print(_('dedup_stats_skipped', count=duplicate_count, percent=percent))
+    
+    if motion_rejected_count > 0:
+        print(_('motion_rejected_stats', count=motion_rejected_count))
+    
+    if species_counts:
+        print(_('species_breakdown'))
+        for species, count in sorted(species_counts.items(), key=lambda x: x[1], reverse=True):
+            print(_('species_count', species=species, count=count))
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description='Extract bird crops from videos for training data collection',
+        description='Extract bird crops from videos or images for training data collection',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Standard mode: Extract all birds to one directory
-  python extract_birds.py video.mp4 --folder training_data/
-
-  # Manual mode: Specify bird species (creates subdirectory)
-  python extract_birds.py rotkehlchen_video.mp4 --folder data/ --bird rotkehlchen
-
-Examples:
-  # Single video file
+  # Videos - Single video file
   python extract_birds.py video.mp4 --folder data/ --bird rotkehlchen
 
-  # Multiple videos with wildcards
+  # Videos - Multiple videos with wildcards
   python extract_birds.py "~/Videos/*.mp4" --folder data/ --species-model ~/vogel-models/bird-classifier-*/final/
 
-  # Recursive directory search
+  # Videos - Recursive directory search
   python extract_birds.py "~/Videos/**/*.mp4" --folder data/ --bird kohlmeise
 
-  # Auto-sort mode with wildcard
-  python extract_birds.py "/media/videos/vogelhaus_*.mp4" --folder data/ --species-model ~/vogel-models/bird-classifier-*/final/
+  # Images - Single image file
+  python extract_birds.py photo.jpg --folder data/ --bird rotkehlchen
+
+  # Images - Multiple images with wildcards
+  python extract_birds.py "~/Photos/*.jpg" --folder data/ --species-model ~/models/classifier/
+
+  # Images - Recursive directory search for images
+  python extract_birds.py "~/Photos/**/*.jpg" --folder data/ --bird kohlmeise
+
+  # Mixed - Process both videos and images
+  python extract_birds.py "~/Media/**/*" --folder data/ --recursive
 
   # Extract with custom detection parameters
-  python extract_birds.py video.mp4 --folder data/ --bird kohlmeise --threshold 0.6 --sample-rate 2
+  python extract_birds.py video.mp4 --folder data/ --bird kohlmeise --threshold 0.6
   
   # Extract in original size (no resize)
   python extract_birds.py video.mp4 --folder data/ --bird rotkehlchen --no-resize
+
+  # Convert mode - Process existing bird images
+  python extract_birds.py --convert \
+    --source ~/vogel-training-data-species \
+    --target ~/vogel-training-data-species-transparent \
+    --bg-remove --bg-transparent --crop-padding 10 --min-sharpness 80
         """
     )
     
-    parser.add_argument('video', help='Video file, directory, or glob pattern (e.g., "*.mp4", "~/Videos/**/*.mp4")')
-    parser.add_argument('--folder', required=True, help='Base directory for extracted bird images')
+    # Mode selection
+    parser.add_argument('--convert', action='store_true',
+                       help='Convert mode: Process existing bird images (no detection). Requires --source and --target.')
+    parser.add_argument('--source', help='Source directory with existing bird images (for --convert mode)')
+    parser.add_argument('--target', help='Target directory for converted images (for --convert mode)')
+    
+    # Input/Output for extraction mode
+    parser.add_argument('input', nargs='?', help='Video/image file, directory, or glob pattern (e.g., "*.mp4", "*.jpg", "~/Media/**/*")')
+    parser.add_argument('--folder', help='Base directory for extracted bird images (for extraction mode)')
     parser.add_argument('--bird', help='Manual bird species name (e.g., rotkehlchen, kohlmeise). Creates subdirectory.')
     parser.add_argument('--species-model', help='Path to custom species classifier for automatic sorting')
     parser.add_argument('--no-resize', action='store_true',
@@ -805,88 +1253,224 @@ Examples:
     parser.add_argument('--species-threshold', type=float, default=None,
                        help='Minimum confidence for species classification (e.g., 0.85 for 85%%). Only exports birds with confidence >= this value.')
     parser.add_argument('--sample-rate', type=int, default=None, 
-                       help=f'Analyze every Nth frame (default: {DEFAULT_SAMPLE_RATE})')
+                       help=f'Analyze every Nth frame for videos (default: {DEFAULT_SAMPLE_RATE})')
     parser.add_argument('--recursive', '-r', action='store_true',
-                       help='Search directories recursively for video files')
+                       help='Search directories recursively for files')
+    
+    # Background removal options
+    parser.add_argument('--bg-remove', action='store_true',
+                       help='Remove background from bird images using AI')
+    parser.add_argument('--bg-color', type=str, default='128,128,128',
+                       help='Background color as R,G,B (default: 128,128,128 = gray). Ignored if --bg-transparent is used.')
+    parser.add_argument('--bg-model', default='u2net',
+                       choices=['u2net', 'u2netp', 'u2net_human_seg', 'isnet-general-use'],
+                       help='Background removal model (default: u2net)')
+    parser.add_argument('--bg-transparent', action='store_true',
+                       help='Use transparent background (PNG with alpha channel)')
+    parser.add_argument('--bg-fill-black', action='store_true',
+                       help='Make black background/padding areas transparent')
+    
+    # Quality and deduplication
+    parser.add_argument('--deduplicate', action='store_true',
+                       help='Skip duplicate/similar images using perceptual hashing')
+    parser.add_argument('--similarity-threshold', type=int, default=5,
+                       help='Hamming distance threshold for duplicates (0-64, default: 5)')
+    parser.add_argument('--min-sharpness', type=float, default=None,
+                       help='Minimum sharpness score (Laplacian variance)')
+    parser.add_argument('--min-edge-quality', type=float, default=None,
+                       help='Minimum edge quality score (Sobel gradient)')
+    parser.add_argument('--quality-report', action='store_true',
+                       help='Save detailed quality statistics report')
+    parser.add_argument('--crop-padding', type=int, default=0,
+                       help='Extra pixels to include around detected bird (default: 0)')
+    parser.add_argument('--quality', type=int, default=95,
+                       help='JPEG quality 1-100 (default: 95)')
     
     # Keep -o as alias for backwards compatibility
     parser.add_argument('-o', '--output', dest='folder_alias', help=argparse.SUPPRESS)
     
     args = parser.parse_args()
     
+    # Convert mode - process existing bird images
+    if args.convert:
+        if not args.source or not args.target:
+            parser.error("--convert mode requires both --source and --target")
+        
+        # Parse background color
+        bg_color_rgb = tuple(map(int, args.bg_color.split(',')))
+        bg_color_bgr = (bg_color_rgb[2], bg_color_rgb[1], bg_color_rgb[0])
+        
+        print("=" * 70)
+        print("🔄 CONVERT MODE: Processing existing bird images")
+        print("=" * 70)
+        print()
+        
+        convert_bird_images(
+            source_dir=args.source,
+            target_dir=args.target,
+            remove_bg=args.bg_remove,
+            bg_color=bg_color_bgr,
+            bg_model=args.bg_model,
+            bg_transparent=args.bg_transparent,
+            bg_fill_black=args.bg_fill_black,
+            crop_padding=args.crop_padding,
+            min_sharpness=args.min_sharpness,
+            min_edge_quality=args.min_edge_quality,
+            quality_report=args.quality_report,
+            quality=args.quality,
+            deduplicate=args.deduplicate,
+            similarity_threshold=args.similarity_threshold,
+            resize_to_target=not args.no_resize,
+            target_image_size=TARGET_IMAGE_SIZE
+        )
+        
+        return  # Exit after conversion
+    
+    # Extraction mode (normal operation)
+    if not args.input:
+        parser.error("input is required for extraction mode (or use --convert)")
+    
     # Handle backwards compatibility for -o
     output_dir = args.folder or args.folder_alias
     if not output_dir:
-        parser.error("--folder is required")
+        parser.error("--folder is required for extraction mode")
     
-    # Collect video files
-    video_files = []
-    video_path = Path(args.video).expanduser()
+    # Define supported extensions
+    VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mov', '.mkv', '.MP4', '.AVI', '.MOV', '.MKV'}
+    IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.JPG', '.JPEG', '.PNG', '.BMP', '.TIFF'}
+    
+    # Collect files
+    input_files = []
+    input_path = Path(args.input).expanduser()
     
     # Check if it's a glob pattern
-    if '*' in args.video or '?' in args.video:
+    if '*' in args.input or '?' in args.input:
         # Expand glob pattern
-        video_files = [Path(p) for p in glob.glob(str(video_path), recursive=args.recursive)]
-    elif video_path.is_dir():
-        # Directory - search for video files
+        input_files = [Path(p) for p in glob.glob(str(input_path), recursive=args.recursive)]
+    elif input_path.is_dir():
+        # Directory - search for video and image files
         if args.recursive:
-            patterns = ['**/*.mp4', '**/*.avi', '**/*.mov', '**/*.mkv', '**/*.MP4']
+            patterns = ['**/*']
         else:
-            patterns = ['*.mp4', '*.avi', '*.mov', '*.mkv', '*.MP4']
+            patterns = ['*']
         
         for pattern in patterns:
-            video_files.extend(video_path.glob(pattern))
-    elif video_path.is_file():
+            for file_path in input_path.glob(pattern):
+                if file_path.is_file() and file_path.suffix in (VIDEO_EXTENSIONS | IMAGE_EXTENSIONS):
+                    input_files.append(file_path)
+    elif input_path.is_file():
         # Single file
-        video_files = [video_path]
+        input_files = [input_path]
     else:
-        print(f"❌ Video file/directory not found: {args.video}")
+        print(f"❌ File/directory not found: {args.input}")
         sys.exit(1)
     
     # Remove duplicates and sort
-    video_files = sorted(set(video_files))
+    input_files = sorted(set(input_files))
     
-    if not video_files:
-        print(f"❌ No video files found matching: {args.video}")
+    if not input_files:
+        print(f"❌ No video or image files found matching: {args.input}")
         sys.exit(1)
     
+    # Categorize files by type
+    video_files = [f for f in input_files if f.suffix in VIDEO_EXTENSIONS]
+    image_files = [f for f in input_files if f.suffix in IMAGE_EXTENSIONS]
+    
     # Show what will be processed
-    print(f"🎬 Found {len(video_files)} video file(s) to process:")
-    for i, vf in enumerate(video_files[:10], 1):  # Show first 10
-        print(f"   {i}. {vf.name}")
-    if len(video_files) > 10:
-        print(f"   ... and {len(video_files) - 10} more")
+    total_files = len(video_files) + len(image_files)
+    print(f"📁 Found {total_files} file(s) to process:")
+    if video_files:
+        print(f"   🎬 {len(video_files)} video(s)")
+    if image_files:
+        print(f"   🖼️  {len(image_files)} image(s)")
+    
+    # Show first 10 files
+    all_files = video_files + image_files
+    for i, f in enumerate(all_files[:10], 1):
+        file_type = "🎬" if f.suffix in VIDEO_EXTENSIONS else "🖼️"
+        print(f"   {i}. {file_type} {f.name}")
+    if len(all_files) > 10:
+        print(f"   ... and {len(all_files) - 10} more")
     print()
     
     # Validate that only one sorting method is used
     if args.bird and args.species_model:
         print("⚠️  Warning: Both --bird and --species-model specified. Using auto-classification.")
     
-    # Process each video file
-    total_birds = 0
-    for idx, video_file in enumerate(video_files, 1):
-        print(f"\n{'='*70}")
-        print(f"📹 Processing video {idx}/{len(video_files)}: {video_file.name}")
-        print(f"{'='*70}")
-        
-        try:
-            extract_birds_from_video(
-                video_path=str(video_file),
-                output_dir=output_dir,
-                bird_species=args.bird,
-                detection_model=args.detection_model,
-                species_model=args.species_model,
-                threshold=args.threshold,
-                sample_rate=args.sample_rate,
-                resize_to_target=not args.no_resize,
-                species_threshold=args.species_threshold
-            )
-        except Exception as e:
-            print(_('error_processing', name=video_file.name, error=e))
-            print(_('continuing'))
-            continue
+    # Parse background color
+    bg_color_rgb = tuple(map(int, args.bg_color.split(',')))
+    # Convert RGB to BGR for OpenCV
+    bg_color_bgr = (bg_color_rgb[2], bg_color_rgb[1], bg_color_rgb[0])
     
+    # Common extraction parameters
+    extract_params = {
+        'output_dir': output_dir,
+        'bird_species': args.bird,
+        'detection_model': args.detection_model,
+        'species_model': args.species_model,
+        'threshold': args.threshold,
+        'resize_to_target': not args.no_resize,
+        'species_threshold': args.species_threshold,
+        'deduplicate': args.deduplicate,
+        'similarity_threshold': args.similarity_threshold,
+        'min_sharpness': args.min_sharpness,
+        'min_edge_quality': args.min_edge_quality,
+        'save_quality_report': args.quality_report,
+        'remove_bg': args.bg_remove,
+        'bg_color': bg_color_bgr,
+        'bg_model': args.bg_model,
+        'bg_transparent': args.bg_transparent,
+        'bg_fill_black': args.bg_fill_black,
+        'crop_padding': args.crop_padding,
+        'quality': args.quality
+    }
+    
+    # Process video files
+    if video_files:
+        print(f"\n{'='*70}")
+        print(f"🎬 Processing {len(video_files)} video file(s)")
+        print(f"{'='*70}\n")
+        
+        for idx, video_file in enumerate(video_files, 1):
+            print(f"\n{'='*70}")
+            print(f"📹 Processing video {idx}/{len(video_files)}: {video_file.name}")
+            print(f"{'='*70}")
+            
+            try:
+                extract_birds_from_video(
+                    video_path=str(video_file),
+                    sample_rate=args.sample_rate,
+                    **extract_params
+                )
+            except Exception as e:
+                print(_('error_processing', name=video_file.name, error=e))
+                print(_('continuing'))
+                continue
+    
+    # Process image files
+    if image_files:
+        print(f"\n{'='*70}")
+        print(f"🖼️  Processing {len(image_files)} image file(s)")
+        print(f"{'='*70}\n")
+        
+        for idx, image_file in enumerate(image_files, 1):
+            print(f"\n{'='*70}")
+            print(f"📸 Processing image {idx}/{len(image_files)}: {image_file.name}")
+            print(f"{'='*70}")
+            
+            try:
+                extract_birds_from_image(
+                    image_path=str(image_file),
+                    **extract_params
+                )
+            except Exception as e:
+                print(_('error_processing', name=image_file.name, error=e))
+                print(_('continuing'))
+                continue
+    
+    print(f"\n{'='*70}")
     print(_('all_videos_processed', path=output_dir))
+    print(f"{'='*70}")
 
 
 if __name__ == '__main__':

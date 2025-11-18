@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.16] - 2025-11-18
+
+### Added
+- **🖼️ Image Support in Extractor**: Extended bird crop extraction to support static images
+  - New `extract_birds_from_image()` function for processing single images
+  - Automatic detection of video vs. image files based on extension
+  - Supports: `.jpg`, `.jpeg`, `.png`, `.bmp`, `.tiff` (and uppercase variants)
+  - Same features as video extraction: background removal, species classification, quality filtering
+  - Example: `python -m vogel_model_trainer.core.extractor photo.jpg --folder output/ --bg-remove --bg-transparent`
+- **🔄 Convert Mode**: New `--convert` mode for processing existing bird crop datasets
+  - Process already-extracted bird images without YOLO detection
+  - Maintains folder structure (species subdirectories)
+  - Applies consistent processing: background removal, quality filtering, deduplication
+  - Use case: Normalize existing training datasets for model comparability
+  - Example: `--convert --source ~/data-original --target ~/data-transparent --bg-remove --bg-transparent`
+- **📊 Quality Filtering Parameters**: New parameters for image quality control
+  - `--min-sharpness`: Filter out blurry images (Laplacian variance threshold)
+  - `--min-edge-quality`: Filter out poor edge quality (Sobel gradient threshold)
+  - `--quality-report`: Generate detailed quality statistics
+  - `--deduplicate`: Skip duplicate/similar images using perceptual hashing
+  - `--similarity-threshold`: Hamming distance for duplicate detection (default: 5)
+- **🎨 Background Processing Options**: Extended background removal parameters
+  - `--bg-remove`: Enable AI-based background removal (rembg)
+  - `--bg-transparent`: Use transparent background (PNG with alpha channel)
+  - `--bg-color R,G,B`: Custom background color (default: 128,128,128 = gray)
+  - `--bg-model`: Choose rembg model (u2net, u2netp, isnet-general-use)
+  - `--bg-fill-black`: Make black background/padding areas transparent
+  - `--crop-padding N`: Extra pixels around detected bird (default: 0)
+  - `--quality`: JPEG quality 1-100 (default: 95)
+- **🤖 GitHub Automation Tools**: Complete workflow automation infrastructure
+  - `scripts/create_github_release.py`: Automated release creation from Git tags
+    - Auto-detects latest tag or uses specified version
+    - Finds and uses release notes automatically
+    - Monitors PyPI publish workflow with real-time status
+    - Matches workflow by release tag to prevent version mismatches
+    - Support for draft and pre-release modes
+  - `.github/GITHUB_CLI_GUIDE.md`: Comprehensive GitHub CLI documentation (700+ lines)
+    - Complete gh CLI reference for releases, PRs, workflows, issues
+    - Practical examples and production scripts
+    - Best practices and useful aliases
+    - German language documentation
+
+### Changed
+- **📝 Extractor Help Text**: Updated to reflect video and image support
+  - New examples for single images, batch processing, mixed media
+  - Clearer parameter descriptions for new features
+  - Convert mode usage examples added
+- **🗂️ Flexible Input Handling**: Enhanced file detection and processing
+  - Supports glob patterns for both videos and images (`*.mp4`, `*.jpg`, `~/Media/**/*`)
+  - Recursive directory search with `--recursive` flag
+  - Mixed video and image processing in single run
+  - Categorizes files by type and shows summary before processing
+
+### Fixed
+- **🎯 Release Script Workflow Matching**: Fixed workflow version detection
+  - Previously showed wrong workflow version (e.g., v0.1.14 instead of v0.1.15)
+  - Now searches last 5 workflow runs for matching release tag
+  - Matches both `v0.1.16` and `0.1.16` in workflow title
+  - Provides accurate real-time workflow status
+
 ## [0.1.15] - 2025-11-17
 
 ### Added

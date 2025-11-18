@@ -18,11 +18,13 @@ A specialized toolkit for creating high-accuracy bird species classifiers tailor
 
 ## ✨ Features
 
-- 🎯 **YOLO-based Bird Detection** - Automated bird cropping from videos using YOLOv8
+- 🎯 **YOLO-based Bird Detection** - Automated bird cropping from videos and images using YOLOv8
+- 🖼️ **Image Support** - Extract birds from static images (JPG, PNG, BMP, TIFF)
+- 🔄 **Convert Mode** - Normalize existing bird datasets without detection
 - 🤖 **Three Extraction Modes** - Manual labeling, auto-sorting, or standard extraction
-- 📁 **Wildcard Support** - Batch process multiple videos with glob patterns
+- 📁 **Wildcard Support** - Batch process multiple videos/images with glob patterns
 - 🖼️ **Flexible Image Sizes** - 224/384/448px or keep original size
-- 🔍 **Advanced Filtering** - Box size, blur detection, confidence thresholds
+- 🔍 **Advanced Filtering** - Box size, blur detection, sharpness, edge quality thresholds
 - 🔄 **Duplicate Detection** - Perceptual hashing removes similar images
 - ✅ **Quality Check** - Find blurry, too-small, corrupted, or badly-exposed images
 - 🎨 **AI Background Removal** - Remove backgrounds with gray default for optimal training
@@ -151,6 +153,28 @@ extractor.extract_birds_from_video(
     resize_to_target=True
 )
 
+# Extract birds from static images (New in v0.1.16)
+extractor.extract_birds_from_image(
+    image_path="photo.jpg",
+    output_dir="output/",
+    bird_species="great-tit",
+    detection_model="yolov8n.pt",
+    remove_bg=True,
+    bg_transparent=True
+)
+
+# Convert existing bird crops (New in v0.1.16)
+stats = extractor.convert_bird_images(
+    source_dir="raw-data/",
+    target_dir="processed-data/",
+    remove_bg=True,
+    bg_transparent=True,
+    crop_padding=10,
+    min_sharpness=80,
+    deduplicate=True
+)
+print(f"Converted: {stats['converted']}, Skipped: {stats['skipped_quality']}")
+
 # Organize into train/val splits
 organizer.organize_dataset(
     source_dir="output/",
@@ -178,7 +202,13 @@ print(f"Accuracy: {results['accuracy']:.2%}")
 
 ### 1. Extract Training Images
 
-#### Manual Mode (Recommended for Initial Collection)
+vogel-model-trainer now supports both **videos** and **static images** as input sources.
+
+#### 🎬 Video Extraction
+
+Extract bird crops from video files with YOLO detection:
+
+##### Manual Mode (Recommended for Initial Collection)
 
 When you know the species in your video:
 
@@ -190,7 +220,7 @@ vogel-trainer extract ~/Videos/great-tit.mp4 \
   --sample-rate 3
 ```
 
-#### Auto-Sort Mode (For Iterative Training)
+##### Auto-Sort Mode (For Iterative Training)
 
 Use an existing model to automatically classify and sort:
 
@@ -268,6 +298,100 @@ vogel-trainer extract video.mp4 \
   --crop-padding 20 \
   --bg-color gray \
   --bg-model isnet-general-use
+```
+
+#### 🖼️ Image Extraction (New in v0.1.16)
+
+Extract bird crops from static images (JPG, PNG, BMP, TIFF) using YOLO detection:
+
+```bash
+# Single image
+vogel-trainer extract photo.jpg --folder ~/training-data/ --bird amsel
+
+# Multiple images with glob pattern
+vogel-trainer extract "~/photos/*.jpg" --folder ~/training-data/ --bird rotkehlchen
+
+# Recursive directory search
+vogel-trainer extract ~/photos/ \
+  --folder ~/training-data/ \
+  --bird blaumeise \
+  --recursive
+
+# With background removal and quality filtering
+vogel-trainer extract photo.jpg \
+  --folder ~/training-data/ \
+  --bird kohlmeise \
+  --bg-remove \
+  --bg-transparent \
+  --crop-padding 10 \
+  --min-sharpness 100 \
+  --quality-report
+
+# Auto-classification with trained model
+vogel-trainer extract photo.jpg \
+  --folder ~/training-data/ \
+  --species-model ~/models/classifier/final/ \
+  --species-threshold 0.85
+
+# Batch processing with auto-sort
+vogel-trainer extract "~/photos/*.jpg" \
+  --folder ~/training-data/ \
+  --species-model kamera-linux/german-bird-classifier \
+  --recursive
+```
+
+**Note:** All video extraction parameters (filtering, background removal, quality control) are available for image extraction.
+
+#### 🔄 Convert Mode (New in v0.1.16)
+
+Process existing bird crop images **without YOLO detection**. Useful for normalizing existing datasets:
+
+```bash
+# Convert existing crops to transparent background
+vogel-trainer extract \
+  --convert \
+  --source ~/raw-bird-data/ \
+  --target ~/transparent-bird-data/ \
+  --bg-remove \
+  --bg-transparent \
+  --crop-padding 10
+
+# Normalize with quality filtering and deduplication
+vogel-trainer extract \
+  --convert \
+  --source ~/existing-dataset/ \
+  --target ~/normalized-dataset/ \
+  --bg-remove \
+  --bg-color 128,128,128 \
+  --min-sharpness 80 \
+  --min-edge-quality 50 \
+  --deduplicate \
+  --quality-report
+
+# Convert to gray background (optimal for training)
+vogel-trainer extract \
+  --convert \
+  --source ~/vogel-training-data-species/ \
+  --target ~/vogel-training-data-gray/ \
+  --bg-remove \
+  --bg-color 128,128,128 \
+  --crop-padding 15
+```
+
+**Convert Mode Features:**
+- ✅ Maintains folder structure (species subdirectories preserved)
+- ✅ Direct image processing (no YOLO overhead, ~0.3-1s per image)
+- ✅ All quality filters available (sharpness, edge quality, blur detection)
+- ✅ Background removal with transparent or custom color
+- ✅ Deduplication with perceptual hashing
+- ✅ Batch statistics and quality reports
+
+**Use Cases:**
+- Normalize existing datasets from different sources
+- Add transparent backgrounds to legacy datasets
+- Apply consistent quality filtering across old data
+- Remove duplicates from merged datasets
+- Prepare datasets for model comparability
 ```
 
 **🧪 Background Removal (EXPERIMENTAL v0.1.11+, Stable v0.1.14):**

@@ -18,11 +18,13 @@ Ein spezialisiertes Toolkit zum Erstellen von hochgenauen Vogelarten-Klassifizie
 
 ## ✨ Features
 
-- 🎯 **YOLO-basierte Vogelerkennung** - Automatisches Cropping von Vögeln aus Videos mit YOLOv8
+- 🎯 **YOLO-basierte Vogelerkennung** - Automatisches Cropping von Vögeln aus Videos und Bildern mit YOLOv8
+- 🖼️ **Bild-Unterstützung** - Extrahiere Vögel aus statischen Bildern (JPG, PNG, BMP, TIFF)
+- 🔄 **Konvertierungsmodus** - Normalisiere existierende Vogel-Datensätze ohne Erkennung
 - 🤖 **Drei Extraktions-Modi** - Manuelle Beschriftung, Auto-Sortierung oder Standard-Extraktion
-- 📁 **Wildcard-Unterstützung** - Batch-Verarbeitung mehrerer Videos mit Glob-Patterns
+- 📁 **Wildcard-Unterstützung** - Batch-Verarbeitung mehrerer Videos/Bilder mit Glob-Patterns
 - 🖼️ **Flexible Bildgrößen** - 224/384/448px oder Originalgröße beibehalten
-- 🔍 **Erweiterte Filterung** - Box-Größe, Unschärfe-Erkennung, Confidence-Schwellen
+- 🔍 **Erweiterte Filterung** - Box-Größe, Unschärfe-Erkennung, Schärfe, Kantenschärfe-Schwellen
 - 🔄 **Duplikat-Erkennung** - Perceptual Hashing entfernt ähnliche Bilder
 - ✅ **Qualitätskontrolle** - Findet verschwommene, zu kleine, beschädigte oder schlecht belichtete Bilder
 - 🎨 **KI-Hintergrundentfernung** - Entfernt Hintergründe mit grauem Standard für optimales Training
@@ -151,6 +153,28 @@ extractor.extract_birds_from_video(
     resize_to_target=True
 )
 
+# Vögel aus statischen Bildern extrahieren (Neu in v0.1.16)
+extractor.extract_birds_from_image(
+    image_path="foto.jpg",
+    output_dir="output/",
+    bird_species="kohlmeise",
+    detection_model="yolov8n.pt",
+    remove_bg=True,
+    bg_transparent=True
+)
+
+# Existierende Vogel-Crops konvertieren (Neu in v0.1.16)
+stats = extractor.convert_bird_images(
+    source_dir="rohdaten/",
+    target_dir="verarbeitete-daten/",
+    remove_bg=True,
+    bg_transparent=True,
+    crop_padding=10,
+    min_sharpness=80,
+    deduplicate=True
+)
+print(f"Konvertiert: {stats['converted']}, Übersprungen: {stats['skipped_quality']}")
+
 # In Train/Val Splits organisieren
 organizer.organize_dataset(
     source_dir="output/",
@@ -178,7 +202,13 @@ print(f"Genauigkeit: {results['accuracy']:.2%}")
 
 ### 1. Trainingsbilder extrahieren
 
-#### Manueller Modus (Empfohlen für erste Sammlung)
+vogel-model-trainer unterstützt jetzt sowohl **Videos** als auch **statische Bilder** als Eingabequellen.
+
+#### 🎬 Video-Extraktion
+
+Extrahiere Vogel-Crops aus Videodateien mit YOLO-Erkennung:
+
+##### Manueller Modus (Empfohlen für erste Sammlung)
 
 Wenn du die Art in deinem Video kennst:
 
@@ -190,7 +220,7 @@ vogel-trainer extract ~/Videos/kohlmeise.mp4 \
   --sample-rate 3
 ```
 
-#### Auto-Sort Modus (Für iteratives Training)
+##### Auto-Sort Modus (Für iteratives Training)
 
 Nutze ein bestehendes Modell zum automatischen Klassifizieren und Sortieren:
 
@@ -271,6 +301,99 @@ vogel-trainer extract video.mp4 \
   --bg-color gray \
   --bg-model isnet-general-use
 ```
+
+#### 🖼️ Bild-Extraktion (Neu in v0.1.16)
+
+Extrahiere Vogel-Crops aus statischen Bildern (JPG, PNG, BMP, TIFF) mit YOLO-Erkennung:
+
+```bash
+# Einzelnes Bild
+vogel-trainer extract foto.jpg --folder ~/training-data/ --bird amsel
+
+# Mehrere Bilder mit Glob-Pattern
+vogel-trainer extract "~/fotos/*.jpg" --folder ~/training-data/ --bird rotkehlchen
+
+# Rekursive Verzeichnis-Suche
+vogel-trainer extract ~/fotos/ \
+  --folder ~/training-data/ \
+  --bird blaumeise \
+  --recursive
+
+# Mit Hintergrundentfernung und Qualitätsfilterung
+vogel-trainer extract foto.jpg \
+  --folder ~/training-data/ \
+  --bird kohlmeise \
+  --bg-remove \
+  --bg-transparent \
+  --crop-padding 10 \
+  --min-sharpness 100 \
+  --quality-report
+
+# Auto-Klassifizierung mit trainiertem Modell
+vogel-trainer extract foto.jpg \
+  --folder ~/training-data/ \
+  --species-model ~/models/classifier/final/ \
+  --species-threshold 0.85
+
+# Batch-Verarbeitung mit Auto-Sortierung
+vogel-trainer extract "~/fotos/*.jpg" \
+  --folder ~/training-data/ \
+  --species-model kamera-linux/german-bird-classifier \
+  --recursive
+```
+
+**Hinweis:** Alle Video-Extraktions-Parameter (Filterung, Hintergrundentfernung, Qualitätskontrolle) sind auch für die Bild-Extraktion verfügbar.
+
+#### 🔄 Konvertierungsmodus (Neu in v0.1.16)
+
+Verarbeite existierende Vogel-Crop-Bilder **ohne YOLO-Erkennung**. Nützlich zur Normalisierung existierender Datensätze:
+
+```bash
+# Existierende Crops zu transparentem Hintergrund konvertieren
+vogel-trainer extract \
+  --convert \
+  --source ~/rohdaten/ \
+  --target ~/transparente-daten/ \
+  --bg-remove \
+  --bg-transparent \
+  --crop-padding 10
+
+# Normalisierung mit Qualitätsfilterung und Deduplizierung
+vogel-trainer extract \
+  --convert \
+  --source ~/existierender-datensatz/ \
+  --target ~/normalisierter-datensatz/ \
+  --bg-remove \
+  --bg-color 128,128,128 \
+  --min-sharpness 80 \
+  --min-edge-quality 50 \
+  --deduplicate \
+  --quality-report
+
+# Zu grauem Hintergrund konvertieren (optimal fürs Training)
+vogel-trainer extract \
+  --convert \
+  --source ~/vogel-training-data-species/ \
+  --target ~/vogel-training-data-grau/ \
+  --bg-remove \
+  --bg-color 128,128,128 \
+  --crop-padding 15
+```
+
+**Konvertierungsmodus Features:**
+- ✅ Erhält Ordner-Struktur (Arten-Unterverzeichnisse bleiben erhalten)
+- ✅ Direkte Bildverarbeitung (kein YOLO-Overhead, ~0,3-1s pro Bild)
+- ✅ Alle Qualitätsfilter verfügbar (Schärfe, Kantenschärfe, Unschärfe-Erkennung)
+- ✅ Hintergrundentfernung mit transparent oder benutzerdefinierter Farbe
+- ✅ Deduplizierung mit Perceptual Hashing
+- ✅ Batch-Statistiken und Qualitätsberichte
+
+**Anwendungsfälle:**
+- Normalisiere existierende Datensätze aus verschiedenen Quellen
+- Füge transparente Hintergründe zu Legacy-Datensätzen hinzu
+- Wende konsistente Qualitätsfilterung auf alte Daten an
+- Entferne Duplikate aus zusammengeführten Datensätzen
+- Bereite Datensätze für Modell-Vergleichbarkeit vor
 
 **🧪 Hintergrundentfernung (EXPERIMENTELL v0.1.11+, Stabil v0.1.14):**
 

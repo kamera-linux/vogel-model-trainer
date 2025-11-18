@@ -18,21 +18,25 @@
 
 ## ✨ 機能
 
-- 🎯 **YOLOベースの鳥検出** - YOLOv8を使用した動画からの自動鳥切り出し
+- 🎯 **YOLOベースの鳥検出** - YOLOv8を使用した動画と画像からの自動鳥切り出し
+- 🖼️ **画像サポート** - 静止画像（JPG、PNG、BMP、TIFF）から鳥を抽出
+- 🔄 **変換モード** - 検出なしで既存の鳥データセットを正規化
 - 🤖 **3つの抽出モード** - 手動ラベリング、自動ソート、または標準抽出
-- 📁 **ワイルドカード対応** - グロブパターンで複数の動画をバッチ処理
-- 🖼️ **224x224への自動リサイズ** - トレーニングに最適な画像サイズ
-- 🧠 **EfficientNet-B0トレーニング** - 軽量かつ強力な分類モデル
-- 🎨 **拡張データ拡張** - 回転、アフィン変換、カラージッター、ガウシアンブラー
-- 📊 **最適化されたトレーニング** - コサインLRスケジューリング、ラベルスムージング、早期停止
-- ⏸️ **グレースフルシャットダウン** - Ctrl+Cでモデル状態を保存
-- 🔄 **反復トレーニング** - トレーニング済みモデルを使用してデータセットを拡張
-- 📈 **種ごとの指標** - 種ごとの詳細な精度の内訳
-- 🔍 **重複除去コマンド** - 事前抽出された画像の類似/重複画像を検索して削除
-- 📊 **クラスバランス管理** - データセット整理で自動バランス調整と不均衡警告
-- 💾 **複数データセット形式** - ImageFolder、CSV、JSON形式でのエクスポート
-- 🌍 **完全なi18n対応** - 英語、ドイツ語、日本語でコマンドとメッセージ
-- ✅ **品質チェック** - データセットから低品質画像を検出して削除
+- 📁 **ワイルドカード対応** - グロブパターンで複数の動画/画像をバッチ処理
+- 🖼️ **柔軟な画像サイズ** - 224/384/448pxまたは元のサイズを保持
+- 🔍 **高度なフィルタリング** - ボックスサイズ、ボケ検出、シャープネス、エッジ品質閾値
+- 🔄 **重複検出** - 知覚ハッシュで類似画像を削除
+- ✅ **品質チェック** - ボケた、小さすぎる、破損、または不適切な露出の画像を検出
+- 🎨 **AI背景除去** - トレーニングに最適なグレーデフォルトで背景を除去
+- 🧹 **データセット検証** - 自動チェックで透明/グレーデータセットをクリーニング
+- 🧠 **EfficientNet-B0トレーニング** - 軽量で強力な分類モデル
+- 🎨 **4レベルデータ拡張** - None/Light/Medium/Heavy強度オプション
+- ⚡ **混合精度トレーニング** - 高速GPUトレーニングのためのFP16/BF16サポート
+- 📊 **高度なトレーニングオプション** - 微調整のための13個の設定可能パラメータ
+- 🔧 **データセット重複除去** - 知覚ハッシュで既存データセットをクリーニング
+- ⏸️ **グレースフルシャットダウン** - Ctrl+C中断時にモデル状態を保存
+- 🌍 **完全なi18n対応** - 英語、ドイツ語、日本語の翻訳
+- 📈 **種ごとのメトリクス** - 種ごとの詳細な精度内訳
 
 ## 🤖 事前学習済みモデル
 
@@ -150,6 +154,28 @@ extractor.extract_birds_from_video(
     resize_to_target=True
 )
 
+# 静止画像から鳥を抽出（v0.1.16の新機能）
+extractor.extract_birds_from_image(
+    image_path="photo.jpg",
+    output_dir="output/",
+    bird_species="great-tit",
+    detection_model="yolov8n.pt",
+    remove_bg=True,
+    bg_transparent=True
+)
+
+# 既存の鳥クロップを変換（v0.1.16の新機能）
+stats = extractor.convert_bird_images(
+    source_dir="raw-data/",
+    target_dir="processed-data/",
+    remove_bg=True,
+    bg_transparent=True,
+    crop_padding=10,
+    min_sharpness=80,
+    deduplicate=True
+)
+print(f"変換済み: {stats['converted']}, スキップ: {stats['skipped_quality']}")
+
 # トレーニング/検証分割に整理
 organizer.organize_dataset(
     source_dir="output/",
@@ -177,7 +203,13 @@ print(f"精度: {results['accuracy']:.2%}")
 
 ### 1. トレーニング画像の抽出
 
-#### 手動モード（初期収集に推奨）
+vogel-model-trainerは**動画**と**静止画像**の両方を入力ソースとしてサポートするようになりました。
+
+#### 🎬 動画抽出
+
+YOLO検出を使用して動画ファイルから鳥クロップを抽出:
+
+##### 手動モード（初期収集に推奨）
 
 動画内の種がわかっている場合:
 
@@ -189,7 +221,7 @@ vogel-trainer extract ~/Videos/great-tit.mp4 \
   --sample-rate 3
 ```
 
-#### 自動ソートモード（反復トレーニング用）
+##### 自動ソートモード（反復トレーニング用）
 
 既存のモデルを使用して自動分類とソート:
 
@@ -268,6 +300,99 @@ vogel-trainer extract video.mp4 \
   --bg-color gray \
   --bg-model isnet-general-use
 ```
+
+#### 🖼️ 画像抽出（v0.1.16の新機能）
+
+YOLO検出を使用して静止画像（JPG、PNG、BMP、TIFF）から鳥クロップを抽出:
+
+```bash
+# 単一画像
+vogel-trainer extract photo.jpg --folder ~/training-data/ --bird amsel
+
+# グロブパターンで複数の画像
+vogel-trainer extract "~/photos/*.jpg" --folder ~/training-data/ --bird rotkehlchen
+
+# 再帰的なディレクトリ検索
+vogel-trainer extract ~/photos/ \
+  --folder ~/training-data/ \
+  --bird blaumeise \
+  --recursive
+
+# 背景除去と品質フィルタリング付き
+vogel-trainer extract photo.jpg \
+  --folder ~/training-data/ \
+  --bird kohlmeise \
+  --bg-remove \
+  --bg-transparent \
+  --crop-padding 10 \
+  --min-sharpness 100 \
+  --quality-report
+
+# 訓練済みモデルで自動分類
+vogel-trainer extract photo.jpg \
+  --folder ~/training-data/ \
+  --species-model ~/models/classifier/final/ \
+  --species-threshold 0.85
+
+# 自動ソート付きバッチ処理
+vogel-trainer extract "~/photos/*.jpg" \
+  --folder ~/training-data/ \
+  --species-model kamera-linux/german-bird-classifier \
+  --recursive
+```
+
+**注:** すべての動画抽出パラメータ（フィルタリング、背景除去、品質管理）が画像抽出で利用可能です。
+
+#### 🔄 変換モード（v0.1.16の新機能）
+
+**YOLO検出なし**で既存の鳥クロップ画像を処理。既存のデータセットの正規化に便利:
+
+```bash
+# 既存のクロップを透明背景に変換
+vogel-trainer extract \
+  --convert \
+  --source ~/raw-bird-data/ \
+  --target ~/transparent-bird-data/ \
+  --bg-remove \
+  --bg-transparent \
+  --crop-padding 10
+
+# 品質フィルタリングと重複除去による正規化
+vogel-trainer extract \
+  --convert \
+  --source ~/existing-dataset/ \
+  --target ~/normalized-dataset/ \
+  --bg-remove \
+  --bg-color 128,128,128 \
+  --min-sharpness 80 \
+  --min-edge-quality 50 \
+  --deduplicate \
+  --quality-report
+
+# グレー背景に変換（トレーニングに最適）
+vogel-trainer extract \
+  --convert \
+  --source ~/vogel-training-data-species/ \
+  --target ~/vogel-training-data-gray/ \
+  --bg-remove \
+  --bg-color 128,128,128 \
+  --crop-padding 15
+```
+
+**変換モードの機能:**
+- ✅ フォルダ構造を維持（種のサブディレクトリが保持される）
+- ✅ 直接画像処理（YOLOオーバーヘッドなし、画像あたり約0.3-1秒）
+- ✅ すべての品質フィルタが利用可能（シャープネス、エッジ品質、ボケ検出）
+- ✅ 透明またはカスタムカラーでの背景除去
+- ✅ 知覚ハッシュによる重複除去
+- ✅ バッチ統計と品質レポート
+
+**使用例:**
+- 異なるソースからの既存データセットを正規化
+- レガシーデータセットに透明背景を追加
+- 古いデータに一貫した品質フィルタリングを適用
+- マージされたデータセットから重複を削除
+- モデル比較のためのデータセット準備
 
 **🧪 背景除去（実験的 v0.1.11+、安定版 v0.1.14）:**
 
