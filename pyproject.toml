@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vogel-model-trainer"
-version = "0.1.18"
+version = "0.1.19"
 description = "A tool to extract bird images from videos and train custom species classifiers"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -40,7 +40,8 @@ dependencies = [
     "numpy>=1.24.0",
     "imagehash>=4.3.0",
     "rembg>=2.0.50",
-    "onnxruntime>=1.15.0",  # Required for rembg on ARM64 (Raspberry Pi, etc.)
+    # Note: onnxruntime is NOT listed here - install via setup script instead
+    # Run: python scripts/setup_onnxruntime.py (auto-detects CUDA and installs correct version)
 ]
 
 [project.optional-dependencies]
@@ -49,6 +50,12 @@ dev = [
     "black>=23.0.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
+]
+gpu = [
+    "onnxruntime-gpu>=1.15.0",  # For CUDA-enabled systems
+]
+cpu = [
+    "onnxruntime>=1.15.0",  # For CPU-only systems (Raspberry Pi, etc.)
 ]
 
 [project.urls]

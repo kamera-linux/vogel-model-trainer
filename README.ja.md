@@ -58,13 +58,13 @@ Hugging Faceで、8種類の一般的なドイツの庭鳥を100%の検証精度
 
 **抽出時の使用方法:**
 ```bash
-vogel-trainer extract --folder ~/bird-data \
+vogel-trainer extract video.mp4 \
+  --folder ~/training-data/ \
   --species-model kamera-linux/german-bird-classifier \
   --remove-background \
   --crop-padding 20 \
   --sample-rate 20 --skip-blurry --deduplicate \
-  --min-sharpness 150 --min-edge-quality 80 \
-  video.mp4
+  --min-sharpness 150 --min-edge-quality 80
 ```
 
 モデルは抽出中に検出された鳥を自動的に分類します！
@@ -89,6 +89,13 @@ source ~/venv-vogel/bin/activate  # Windows: ~/venv-vogel\Scripts\activate
 
 # パッケージをインストール
 pip install vogel-model-trainer
+
+# 自動検出: 適切なonnxruntimeバージョンをインストール（GPU vs CPU）
+python -c "$(curl -fsSL https://raw.githubusercontent.com/kamera-linux/vogel-model-trainer/main/scripts/setup_onnxruntime.py)"
+
+# または手動で:
+# CUDAシステム（GPU）の場合: pip install vogel-model-trainer[gpu]
+# CPU専用（Raspberry Pi）の場合: pip install vogel-model-trainer[cpu]
 ```
 
 #### クイックインストール
@@ -97,10 +104,19 @@ pip install vogel-model-trainer
 # PyPIからインストール
 pip install vogel-model-trainer
 
+# ハードウェアに適したonnxruntimeをインストール
+python scripts/setup_onnxruntime.py  # CUDAを自動検出してGPU/CPUバージョンをインストール
+
 # またはソースからインストール
 git clone https://github.com/kamera-linux/vogel-model-trainer.git
 cd vogel-model-trainer
 pip install -e .
+python scripts/setup_onnxruntime.py
+```
+
+**ハードウェアサポート:**
+- 🎮 **CUDA GPU**（NVIDIA） → `onnxruntime-gpu`を使用（高速な背景除去）
+- 💻 **CPUのみ**（Raspberry Pi、ARM64など） → `onnxruntime`を使用（互換性あり)
 ```
 
 ### 🎥 ビデオチュートリアル

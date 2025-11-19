@@ -59,6 +59,7 @@ Wir stellen ein vortrainiertes Modell auf Hugging Face bereit, das 8 häufige de
 **Verwendung bei der Extraktion:**
 ```bash
 vogel-trainer extract video.mp4 \
+  --folder ~/training-data/ \
   --species-model kamera-linux/german-bird-classifier \
   --remove-background \
   --crop-padding 20 \
@@ -88,6 +89,13 @@ source ~/venv-vogel/bin/activate  # Windows: ~/venv-vogel\Scripts\activate
 
 # Paket installieren
 pip install vogel-model-trainer
+
+# Auto-erkennung: Installiere richtige onnxruntime Version (GPU vs CPU)
+python -c "$(curl -fsSL https://raw.githubusercontent.com/kamera-linux/vogel-model-trainer/main/scripts/setup_onnxruntime.py)"
+
+# ODER manuell:
+# Für CUDA-Systeme (GPU): pip install vogel-model-trainer[gpu]
+# Für CPU-only (Raspberry Pi): pip install vogel-model-trainer[cpu]
 ```
 
 #### Schnell-Installation
@@ -96,10 +104,19 @@ pip install vogel-model-trainer
 # Installation von PyPI
 pip install vogel-model-trainer
 
+# Richtiges onnxruntime für deine Hardware installieren
+python scripts/setup_onnxruntime.py  # Auto-erkennt CUDA und installiert GPU/CPU Version
+
 # Oder Installation aus Quellcode
 git clone https://github.com/kamera-linux/vogel-model-trainer.git
 cd vogel-model-trainer
 pip install -e .
+python scripts/setup_onnxruntime.py
+```
+
+**Hardware-Unterstützung:**
+- 🎮 **CUDA GPU** (NVIDIA) → Verwendet `onnxruntime-gpu` (schnellere Hintergrundentfernung)
+- 💻 **CPU-only** (Raspberry Pi, ARM64, etc.) → Verwendet `onnxruntime` (kompatibel)
 ```
 
 ### 🎥 Video-Anleitungen

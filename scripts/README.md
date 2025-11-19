@@ -2,6 +2,68 @@
 
 Automation scripts for vogel-model-trainer development and release management.
 
+## 🎮 setup_onnxruntime.py
+
+Auto-detects hardware (CUDA GPU vs CPU-only) and installs the appropriate onnxruntime package.
+
+### Purpose
+
+Different hardware requires different onnxruntime packages:
+- **CUDA systems** (NVIDIA GPU) → `onnxruntime-gpu` (GPU acceleration)
+- **CPU-only systems** (Raspberry Pi, ARM64, etc.) → `onnxruntime` (CPU)
+
+This script automatically detects your hardware and installs the correct version.
+
+### Usage
+
+After installing vogel-model-trainer:
+
+```bash
+# Auto-detect and install correct onnxruntime version
+python scripts/setup_onnxruntime.py
+```
+
+The script will:
+1. ✅ Check for CUDA availability (nvidia-smi, torch.cuda, env vars)
+2. 🔄 Uninstall incorrect onnxruntime version if present
+3. 📦 Install correct version (onnxruntime-gpu or onnxruntime)
+4. 📊 Verify installation and show available execution providers
+
+### Manual Installation
+
+If you prefer manual control:
+
+```bash
+# For CUDA systems (GPU acceleration)
+pip install vogel-model-trainer[gpu]
+
+# For CPU-only systems (Raspberry Pi, etc.)
+pip install vogel-model-trainer[cpu]
+```
+
+### Why This Matters
+
+- **Without GPU acceleration:** Background removal (rembg) runs slower on CPU
+- **With GPU acceleration:** Faster processing using CUDA
+- **Wrong package:** Won't break functionality but slower performance
+
+### Expected Behavior
+
+After running the script:
+- ✅ **CUDA systems:** See `CUDAExecutionProvider` in available providers
+- ✅ **CPU systems:** See only `CPUExecutionProvider`
+
+**Note:** You may still see a harmless warning:
+```
+[W:onnxruntime:Default, device_discovery.cc:164 DiscoverDevicesForPlatform] 
+GPU device discovery failed: device_discovery.cc:89 ReadFileContents 
+Failed to open file: "/sys/class/drm/card0/device/vendor"
+```
+
+This is **normal** and **harmless** - it occurs when ONNX Runtime checks for integrated GPUs (like Intel/AMD) on systems with discrete NVIDIA GPUs. The CUDA GPU is still being used correctly. This warning can be safely ignored.
+
+---
+
 ## 📦 create_github_release.py
 
 Automated GitHub release creation from Git tags with PyPI workflow monitoring.

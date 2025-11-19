@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.19] - 2025-11-19
+
+### Added
+- **🔧 Hardware Auto-Detection Script**: New `scripts/setup_onnxruntime.py` for automatic ONNX Runtime installation
+  - Automatically detects CUDA GPU availability (nvidia-smi, torch.cuda, environment variables)
+  - Installs correct version: `onnxruntime-gpu` (GPU) or `onnxruntime` (CPU)
+  - Removes conflicting versions automatically
+  - Verifies installation and displays available execution providers
+  - Cross-platform support: CUDA workstations, Raspberry Pi, ARM64, CPU-only systems
+  - Example: `python scripts/setup_onnxruntime.py`
+
+### Changed
+- **📦 Dependency Management**: Removed `onnxruntime` from core dependencies in `pyproject.toml`
+  - Added optional dependency groups: `[gpu]` and `[cpu]`
+  - Manual installation required: `pip install vogel-model-trainer[gpu]` or use setup script
+  - Prevents hardware conflicts (GPU package on CPU-only systems)
+
+### Documentation
+- **📚 Installation Instructions**: Updated all README files (EN, DE, JA) with hardware detection
+  - Added automatic installation method using curl one-liner
+  - Added setup_onnxruntime.py usage instructions
+  - Added hardware support section explaining GPU vs CPU versions
+  - Updated `scripts/README.md` with comprehensive setup_onnxruntime.py documentation
+
+## [0.1.18] - 2025-11-19
+
+### Fixed
+- **🐛 Parameter Error Fix**: Fixed `resize_to_target` parameter error in `extractor.py`
+  - Changed to use `target_image_size` parameter with conditional value
+- **🐛 String Formatting Fix**: Fixed malformed string formatting in `i18n.py`
+  - Corrected `{"="*70}` patterns in translation strings
+  - Applied to all languages (EN, DE, JA)
+
 ## [0.1.17] - 2025-11-18
 
 ### Fixed

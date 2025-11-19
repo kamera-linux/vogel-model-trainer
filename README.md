@@ -59,6 +59,7 @@ We provide a pre-trained model on Hugging Face that can classify 8 common German
 **Usage during extraction:**
 ```bash
 vogel-trainer extract video.mp4 \
+  --folder ~/training-data/ \
   --species-model kamera-linux/german-bird-classifier \
   --remove-background \
   --crop-padding 20 \
@@ -66,7 +67,7 @@ vogel-trainer extract video.mp4 \
   --min-sharpness 150 --min-edge-quality 80
 ```
 
-The model will automatically classify detected birds during extraction!
+The model automatically classifies detected birds during extraction!
 
 ---
 
@@ -88,6 +89,13 @@ source ~/venv-vogel/bin/activate  # On Windows: ~/venv-vogel\Scripts\activate
 
 # Install package
 pip install vogel-model-trainer
+
+# Auto-detect and install correct onnxruntime version (GPU vs CPU)
+python -c "$(curl -fsSL https://raw.githubusercontent.com/kamera-linux/vogel-model-trainer/main/scripts/setup_onnxruntime.py)"
+
+# OR manually:
+# For CUDA systems (GPU): pip install vogel-model-trainer[gpu]
+# For CPU-only (Raspberry Pi): pip install vogel-model-trainer[cpu]
 ```
 
 #### Quick Install
@@ -96,10 +104,19 @@ pip install vogel-model-trainer
 # Install from PyPI
 pip install vogel-model-trainer
 
+# Install correct onnxruntime for your hardware
+python scripts/setup_onnxruntime.py  # Auto-detects CUDA and installs GPU/CPU version
+
 # Or install from source
 git clone https://github.com/kamera-linux/vogel-model-trainer.git
 cd vogel-model-trainer
 pip install -e .
+python scripts/setup_onnxruntime.py
+```
+
+**Hardware Support:**
+- 🎮 **CUDA GPU** (NVIDIA) → Uses `onnxruntime-gpu` (faster background removal)
+- 💻 **CPU-only** (Raspberry Pi, ARM64, etc.) → Uses `onnxruntime` (compatible)
 ```
 
 ### 🎥 Video Tutorials

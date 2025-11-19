@@ -17,6 +17,7 @@ import torch
 import glob
 import imagehash
 import numpy as np
+import os
 
 # Import i18n for translations
 from vogel_model_trainer.i18n import _
@@ -111,7 +112,19 @@ def remove_background(image, margin=10, iterations=10, bg_color=(128, 128, 128),
     
     # Check if rembg is available (dynamically check at runtime)
     try:
-        from rembg import remove as rembg_remove
+        # Suppress ONNX Runtime device discovery warnings during rembg import
+        # These warnings occur when checking for integrated GPUs on systems with discrete NVIDIA GPUs
+        import warnings
+        import contextlib
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning)
+            # Temporarily suppress stderr to hide ONNX Runtime C++ warnings
+            with contextlib.redirect_stderr(None):
+                try:
+                    from rembg import remove as rembg_remove
+                except:
+                    # If redirect_stderr fails (some systems), import normally
+                    from rembg import remove as rembg_remove
     except ImportError:
         print("⚠️ Warning: rembg not installed. Background removal disabled. Install with: pip install rembg")
         return image
