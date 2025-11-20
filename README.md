@@ -802,21 +802,25 @@ vogel-trainer test ~/models/final/ --data ~/dataset/
 Classify large batches of bird images automatically with your trained model:
 
 ```bash
-# Simple classification with CSV export
-vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+# Simple classification with CSV export (local model)
+vogel-trainer classify --species-model ~/models/final/ ~/camera-trap-images/ \
+  --csv-report results.csv
+
+# Use Hugging Face model (downloads automatically)
+vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/camera-trap-images/ \
   --csv-report results.csv
 
 # Auto-sort images by species
-vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/camera-trap-images/ \
   --sort-output ~/sorted-birds/
 
 # With confidence threshold (only sort high-confidence classifications)
-vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/camera-trap-images/ \
   --sort-output ~/sorted-birds/ \
   --min-confidence 0.85
 
 # Full: CSV + sorting + Top-3 predictions
-vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/camera-trap-images/ \
   --csv-report results.csv \
   --sort-output ~/sorted-birds/ \
   --top-k 3 \
@@ -827,33 +831,33 @@ vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
 
 ```bash
 # Default: Copy files (originals remain)
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --sort-output ~/sorted/
 
 # Move instead of copy (saves disk space)
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --sort-output ~/sorted/ \
   --move
 
 # Delete source directory after processing
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/images/ \
   --sort-output ~/sorted/ \
   --delete-source
 
 # Combination: Move + cleanup source directory
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --sort-output ~/sorted/ \
   --move \
   --delete-source
 
 # Dry run (simulate without changes)
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --sort-output ~/sorted/ \
   --delete-source \
   --dry-run
 
 # For scripts: Skip confirmation prompts
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --sort-output ~/sorted/ \
   --delete-source \
   --force

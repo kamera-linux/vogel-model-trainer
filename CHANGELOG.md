@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.21] - 2025-11-20
+
+### Changed
+- **🔧 Parameter Update**: Changed `classify` command model parameter
+  - Now uses `--species-model` instead of positional `model` argument
+  - Consistent with other commands like `extract` and `test`
+  - Example: `vogel-trainer classify --species-model ~/models/final/ ~/images/`
+
+- **🤗 Hugging Face Integration**: Added support for Hugging Face model IDs
+  - Automatically downloads and loads models from Hugging Face Hub
+  - Supports both local paths and remote model IDs
+  - Example: `vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/images/`
+  - Local models still fully supported: `--species-model ~/models/final/`
+
+### Documentation
+- **📚 Updated Documentation**: All README files (EN, DE, JA) updated with new parameter syntax
+  - All classify examples now use `--species-model` parameter
+  - Added Hugging Face model examples
+  - Clear distinction between local and remote models
+
 ## [0.1.20] - 2025-11-20
 
 ### Added

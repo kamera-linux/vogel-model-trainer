@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vogel-model-trainer"
-version = "0.1.20"
+version = "0.1.21"
 description = "A tool to extract bird images from videos and train custom species classifiers"
 readme = "README.md"
 requires-python = ">=3.9"

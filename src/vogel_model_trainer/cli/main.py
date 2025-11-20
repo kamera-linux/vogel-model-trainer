@@ -305,7 +305,7 @@ def classify_command(args):
     
     # Run classification
     classifier.classify_images(
-        model_path=args.model,
+        model_path=args.species_model,
         input_dir=args.input,
         sort_output=args.sort_output,
         min_confidence=args.min_confidence,
@@ -1056,8 +1056,9 @@ For more information, visit:
         description="Batch classification of bird images with CSV export and auto-sorting"
     )
     classify_parser.add_argument(
-        "model",
-        help="Path to trained model directory"
+        "--species-model",
+        required=True,
+        help="Path to trained model directory or Hugging Face model ID (e.g. kamera-linux/german-bird-classifier)"
     )
     classify_parser.add_argument(
         "input",

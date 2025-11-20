@@ -547,21 +547,25 @@ vogel-trainer test ~/models/final/ --data ~/dataset/
 トレーニング済みモデルで大量の鳥画像を自動分類:
 
 ```bash
-# CSVエクスポート付きシンプル分類
-vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+# CSVエクスポート付きシンプル分類（ローカルモデル）
+vogel-trainer classify --species-model ~/models/final/ ~/camera-trap-images/ \
+  --csv-report results.csv
+
+# Hugging Faceモデルを使用（自動ダウンロード）
+vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/camera-trap-images/ \
   --csv-report results.csv
 
 # 種別に画像を自動振り分け
-vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/camera-trap-images/ \
   --sort-output ~/sorted-birds/
 
 # 信頼度閾値付き（高信頼度分類のみ振り分け）
-vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/camera-trap-images/ \
   --sort-output ~/sorted-birds/ \
   --min-confidence 0.85
 
 # フル機能: CSV + 振り分け + トップ3予測
-vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/camera-trap-images/ \
   --csv-report results.csv \
   --sort-output ~/sorted-birds/ \
   --top-k 3 \
@@ -572,40 +576,40 @@ vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
 
 ```bash
 # デフォルト: コピー（元ファイルは残る）
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --sort-output ~/sorted/
 
 # コピーの代わりに移動（ディスク容量節約）
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --sort-output ~/sorted/ \
   --move
 
 # 処理後にソースディレクトリを削除
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/images/ \
   --sort-output ~/sorted/ \
   --delete-source
 
 # 組み合わせ: 移動 + ソースディレクトリクリーンアップ
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --sort-output ~/sorted/ \
   --move \
   --delete-source
 
 # ドライラン（変更なしでシミュレート）
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --sort-output ~/sorted/ \
   --delete-source \
   --dry-run
 
 # スクリプト用: 確認プロンプトをスキップ
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --sort-output ~/sorted/ \
   --delete-source \
   --force
 ```
 
 **パラメータ:**
-- `model`: トレーニング済みモデルへのパス（必須）
+- `--species-model`: トレーニング済みモデルへのパスまたはHugging Face Model ID（必須）
 - `input`: 分類する画像を含むディレクトリ（必須）
 - `--sort-output, -s`: 種別に振り分けられた画像の出力ディレクトリ
 - `--min-confidence`: 振り分けの最小信頼度閾値（0.0-1.0、デフォルト: 0.0）

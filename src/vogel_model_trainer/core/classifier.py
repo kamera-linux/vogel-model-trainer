@@ -22,21 +22,29 @@ def load_classifier(model_path: str) -> Tuple[AutoModelForImageClassification, A
     Load trained classifier model and processor.
     
     Args:
-        model_path: Path to trained model directory
+        model_path: Path to trained model directory or Hugging Face model ID
         
     Returns:
         Tuple of (model, processor, species_list)
     """
-    model_path = Path(model_path).expanduser()
+    # Check if it's a local path or Hugging Face model ID
+    local_path = Path(model_path).expanduser()
+    is_local = local_path.exists()
     
-    if not model_path.exists():
-        raise FileNotFoundError(_('classify_model_not_found', path=str(model_path)))
+    if is_local:
+        model_source = str(local_path)
+    else:
+        # Assume it's a Hugging Face model ID
+        model_source = model_path
     
-    print(_('classify_loading_model', path=str(model_path)))
+    print(_('classify_loading_model', path=model_source))
     
-    # Load model and processor
-    model = AutoModelForImageClassification.from_pretrained(str(model_path))
-    processor = AutoImageProcessor.from_pretrained(str(model_path))
+    try:
+        # Load model and processor (works for both local and HF models)
+        model = AutoModelForImageClassification.from_pretrained(model_source)
+        processor = AutoImageProcessor.from_pretrained(model_source)
+    except Exception as e:
+        raise FileNotFoundError(_('classify_model_not_found', path=model_source)) from e
     
     # Get species list from model config
     species = list(model.config.id2label.values())

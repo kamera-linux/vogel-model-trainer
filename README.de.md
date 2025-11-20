@@ -854,21 +854,25 @@ vogel-trainer test ~/models/final/ --data ~/dataset/
 Klassifiziere große Mengen von Vogelbildern automatisch mit deinem trainierten Modell:
 
 ```bash
-# Einfache Klassifizierung mit CSV-Export
-vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+# Einfache Klassifizierung mit CSV-Export (lokales Modell)
+vogel-trainer classify --species-model ~/models/final/ ~/camera-trap-images/ \
+  --csv-report results.csv
+
+# Hugging Face Modell verwenden (lädt automatisch herunter)
+vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/camera-trap-images/ \
   --csv-report results.csv
 
 # Auto-Sortierung nach Arten
-vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/camera-trap-images/ \
   --sort-output ~/sorted-birds/
 
 # Mit Confidence-Schwelle (nur sichere Klassifikationen sortieren)
-vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/camera-trap-images/ \
   --sort-output ~/sorted-birds/ \
   --min-confidence 0.85
 
 # Vollständig: CSV + Sortieren + Top-3 Vorhersagen
-vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/camera-trap-images/ \
   --csv-report results.csv \
   --sort-output ~/sorted-birds/ \
   --top-k 3 \
@@ -879,40 +883,40 @@ vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
 
 ```bash
 # Standard: Kopieren (Original bleibt erhalten)
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --sort-output ~/sorted/
 
 # Verschieben statt Kopieren (spart Speicherplatz)
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --sort-output ~/sorted/ \
   --move
 
 # Quellverzeichnis nach Verarbeitung löschen
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/images/ \
   --sort-output ~/sorted/ \
   --delete-source
 
 # Kombination: Verschieben + Quellverzeichnis aufräumen
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --sort-output ~/sorted/ \
   --move \
   --delete-source
 
 # Probelauf (nichts wird geändert)
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --sort-output ~/sorted/ \
   --delete-source \
   --dry-run
 
 # Für Skripte: Bestätigungs-Prompt überspringen
-vogel-trainer classify ~/models/final/ ~/images/ \
+vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --sort-output ~/sorted/ \
   --delete-source \
   --force
 ```
 
 **Parameter:**
-- `model`: Pfad zum trainierten Modell (erforderlich)
+- `--species-model`: Pfad zum trainierten Modell oder Hugging Face Model ID (erforderlich)
 - `input`: Verzeichnis mit zu klassifizierenden Bildern (erforderlich)
 - `--sort-output, -s`: Ausgabeverzeichnis für nach Arten sortierte Bilder
 - `--min-confidence`: Minimale Confidence für Sortierung (0.0-1.0, Standard: 0.0)
