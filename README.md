@@ -433,29 +433,19 @@ vogel-trainer extract video.mp4 \
   --deduplicate \
   --save-quality-report \
   --quality 98
-```
-
-# Extract with high quality settings
-vogel-trainer extract video.mp4 \
-  --folder data/ \
-  --skip-blurry \
-  --deduplicate \
-  --save-quality-report \
-  --remove-background \
-  --quality 98
 
 # Extract with duplicate detection (prevents similar images)
 vogel-trainer extract ~/Videos/*.mp4 \
   --folder data/ \
   --bird kohlmeise \
   --deduplicate \
-  --similarity-threshold 3  # Stricter duplicate detection
+  --similarity-threshold 3
 
 # Large image size for high-detail training
 vogel-trainer extract video.mp4 \
   --folder data/ \
   --bird amsel \
-  --image-size 384  # Larger images for better quality
+  --image-size 384
 
 # Auto-sort with confidence filter (only high-confidence classifications)
 vogel-trainer extract video.mp4 \

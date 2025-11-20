@@ -435,20 +435,19 @@ vogel-trainer extract video.mp4 \
   --deduplicate \
   --save-quality-report \
   --quality 98
-```
 
 # Extraktion mit Duplikat-Erkennung (verhindert ähnliche Bilder)
 vogel-trainer extract ~/Videos/*.mp4 \
   --folder data/ \
   --bird kohlmeise \
   --deduplicate \
-  --similarity-threshold 3  # Striktere Duplikat-Erkennung
+  --similarity-threshold 3
 
 # Große Bildgröße für hochdetailliertes Training
 vogel-trainer extract video.mp4 \
   --folder data/ \
   --bird amsel \
-  --image-size 384  # Größere Bilder für bessere Qualität
+  --image-size 384
 
 # Auto-Sortierung mit Confidence-Filter (nur hochsichere Klassifizierungen)
 vogel-trainer extract video.mp4 \
