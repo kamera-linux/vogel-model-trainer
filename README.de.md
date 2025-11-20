@@ -35,6 +35,7 @@ Ein spezialisiertes Toolkit zum Erstellen von hochgenauen Vogelarten-Klassifizie
 - 📊 **Erweiterte Training-Optionen** - 13 konfigurierbare Parameter für Feinabstimmung
 - 🔧 **Dataset-Deduplizierung** - Bereinige existierende Datasets mit Perceptual Hashing
 - ⏸️ **Graceful Shutdown** - Modellzustand bei Strg+C-Unterbrechung speichern
+- 🎯 **Batch-Klassifizierung** - Klassifiziere tausende Bilder mit CSV-Export und Auto-Sortierung
 - 🌍 **Vollständige i18n-Unterstützung** - Englisch, Deutsch, Japanisch
 - 📈 **Pro-Art-Metriken** - Detaillierte Genauigkeits-Aufschlüsselung pro Vogelart
 
@@ -118,18 +119,6 @@ python scripts/setup_onnxruntime.py
 - 🎮 **CUDA GPU** (NVIDIA) → Verwendet `onnxruntime-gpu` (schnellere Hintergrundentfernung)
 - 💻 **CPU-only** (Raspberry Pi, ARM64, etc.) → Verwendet `onnxruntime` (kompatibel)
 ```
-
-### 🎥 Video-Anleitungen
-
-Lerne vogel-model-trainer mit Schritt-für-Schritt Video-Anleitungen:
-
-- **Erste Schritte** - Installation und erste Extraktion (5 Min.)
-- **Vögel Extrahieren** - Qualitätsfilter, Deduplizierung, Arten-Klassifizierung (10 Min.)
-- **Datasets Organisieren** - Train/Val Splits, Class Balance Management (8 Min.) **NEU in v0.1.8**
-- **Modelle Trainieren** - Custom Classifier Training und Parameter (12 Min.)
-- **Testen & Evaluieren** - Modell-Tests und Performance-Analyse (7 Min.)
-
-📺 *Video-Tutorials kommen bald!*
 
 ### Grundlegender Workflow
 
@@ -280,8 +269,12 @@ vogel-trainer extract ~/Videos/ \
 - `--save-quality-report`: **NEU v0.1.9** - Detaillierten Qualitätsbericht speichern
 - `--remove-background`: **🧪 EXPERIMENTELL v0.1.11** - Hintergrund mit KI entfernen (rembg)
 - `--crop-padding`: **NEU v0.1.15** - Pixel um Vogel herum erweitern (erhält Details wie Füße/Schnabel)
-- `--bg-color [white|black|gray]`: **🧪 EXPERIMENTELL v0.1.11** - Hintergrundfarbe (Standard: white)
+- `--bg-color [white|black|gray]`: **🧪 EXPERIMENTELL v0.1.11** - Hintergrundfarbe (Standard: gray)
 - `--bg-model [u2net|u2netp|isnet-general-use]`: **🧪 EXPERIMENTELL v0.1.11** - KI-Modell für Hintergrundentfernung (Standard: u2net)
+- `--bg-transparent`: **NEU v0.1.14** - PNG mit transparentem Hintergrund erstellen (Standard: deaktiviert, grauer Hintergrund)
+- `--no-bg-transparent`: **NEU v0.1.14** - Transparenz deaktivieren, farbigen Hintergrund verwenden (Standard)
+- `--bg-fill-black`: **NEU v0.1.14** - Schwarze Padding-Bereiche transparent machen (benötigt --bg-transparent, erhält schwarze Federn)
+- `--no-bg-fill-black`: **NEU v0.1.14** - Schwarze Padding-Bereiche opak lassen (Standard)
 - `--deduplicate`: Doppelte/ähnliche Bilder überspringen (Perceptual Hashing)
 - `--similarity-threshold`: Ähnlichkeits-Schwelle für Duplikate - Hamming-Distanz 0-64 (Standard: 5)
 - `--recursive, -r`: Verzeichnisse rekursiv durchsuchen
@@ -340,11 +333,11 @@ vogel-trainer extract ~/fotos/ \
 vogel-trainer extract foto.jpg \
   --folder ~/training-data/ \
   --bird kohlmeise \
-  --bg-remove \
+  --remove-background \
   --bg-transparent \
   --crop-padding 10 \
   --min-sharpness 100 \
-  --quality-report
+  --save-quality-report
 
 # Auto-Klassifizierung mit trainiertem Modell
 vogel-trainer extract foto.jpg \
@@ -360,57 +353,6 @@ vogel-trainer extract "~/fotos/*.jpg" \
 ```
 
 **Hinweis:** Alle Video-Extraktions-Parameter (Filterung, Hintergrundentfernung, Qualitätskontrolle) sind auch für die Bild-Extraktion verfügbar.
-
-#### 🔄 Konvertierungsmodus (Neu in v0.1.16)
-
-Verarbeite existierende Vogel-Crop-Bilder **ohne YOLO-Erkennung**. Nützlich zur Normalisierung existierender Datensätze:
-
-```bash
-# Existierende Crops zu transparentem Hintergrund konvertieren
-vogel-trainer extract \
-  --convert \
-  --source ~/rohdaten/ \
-  --target ~/transparente-daten/ \
-  --bg-remove \
-  --bg-transparent \
-  --crop-padding 10
-
-# Normalisierung mit Qualitätsfilterung und Deduplizierung
-vogel-trainer extract \
-  --convert \
-  --source ~/existierender-datensatz/ \
-  --target ~/normalisierter-datensatz/ \
-  --bg-remove \
-  --bg-color 128,128,128 \
-  --min-sharpness 80 \
-  --min-edge-quality 50 \
-  --deduplicate \
-  --quality-report
-
-# Zu grauem Hintergrund konvertieren (optimal fürs Training)
-vogel-trainer extract \
-  --convert \
-  --source ~/vogel-training-data-species/ \
-  --target ~/vogel-training-data-grau/ \
-  --bg-remove \
-  --bg-color 128,128,128 \
-  --crop-padding 15
-```
-
-**Konvertierungsmodus Features:**
-- ✅ Erhält Ordner-Struktur (Arten-Unterverzeichnisse bleiben erhalten)
-- ✅ Direkte Bildverarbeitung (kein YOLO-Overhead, ~0,3-1s pro Bild)
-- ✅ Alle Qualitätsfilter verfügbar (Schärfe, Kantenschärfe, Unschärfe-Erkennung)
-- ✅ Hintergrundentfernung mit transparent oder benutzerdefinierter Farbe
-- ✅ Deduplizierung mit Perceptual Hashing
-- ✅ Batch-Statistiken und Qualitätsberichte
-
-**Anwendungsfälle:**
-- Normalisiere existierende Datensätze aus verschiedenen Quellen
-- Füge transparente Hintergründe zu Legacy-Datensätzen hinzu
-- Wende konsistente Qualitätsfilterung auf alte Daten an
-- Entferne Duplikate aus zusammengeführten Datensätzen
-- Bereite Datensätze für Modell-Vergleichbarkeit vor
 
 **🧪 Hintergrundentfernung (EXPERIMENTELL v0.1.11+, Stabil v0.1.14):**
 
@@ -864,14 +806,153 @@ vogel-trainer quality-check ~/data/ --mode move --recursive
 
 ### 6. Modell testen
 
+**Test auf einzelnem Bild:**
 ```bash
-# Test auf einzelnem Bild
+# Mit vollständiger Ausgabe (Top-5 Vorhersagen)
+vogel-trainer test ~/models/final/ -i image.jpg
+vogel-trainer test ~/models/final/ --image foto.jpg
+
+# Kurzform (ohne Flag)
 vogel-trainer test ~/models/final/ image.jpg
 
 # Output:
-# 🖼️  Testing: image.jpg
-#    🐦 Predicted: kohlmeise (98.5% confidence)
+# 🖼️  Classifying image: image.jpg
+# 
+# Results:
+# ==================================================
+# 1. kohlmeise      - 0.9850 (98.5%)
+# 2. blaumeise      - 0.0120 (1.2%)
+# 3. sumpfmeise     - 0.0025 (0.3%)
+# 4. tannenmeise    - 0.0003 (0.0%)
+# 5. haubenmeise    - 0.0002 (0.0%)
 ```
+
+**Test auf Validierungsset:**
+```bash
+# Testet Modell auf kompletten Validierungsdaten
+vogel-trainer test ~/models/final/ -d ~/organized-data/
+vogel-trainer test ~/models/final/ --data ~/dataset/
+
+# Output:
+# 🧪 Testing on validation set: ~/organized-data/val
+# ======================================================================
+#    kohlmeise   : 5/5 = 100.0%
+#    blaumeise   : 4/5 = 80.0%
+#    rotkehlchen : 5/5 = 100.0%
+# ======================================================================
+# 📊 Overall accuracy: 14/15 = 93.3%
+```
+
+**Parameter:**
+- `model`: Pfad zum trainierten Modell (erforderlich)
+- `-i, --image`: Einzelnes Bild testen (zeigt Top-5 Vorhersagen)
+- `-d, --data`: Validierungsset testen (berechnet Genauigkeit)
+
+**Hinweis:** Entweder `-i` oder `-d` muss angegeben werden!
+
+### 7. Bilder klassifizieren (Batch-Inferenz)
+
+Klassifiziere große Mengen von Vogelbildern automatisch mit deinem trainierten Modell:
+
+```bash
+# Einfache Klassifizierung mit CSV-Export
+vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+  --csv-report results.csv
+
+# Auto-Sortierung nach Arten
+vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+  --sort-output ~/sorted-birds/
+
+# Mit Confidence-Schwelle (nur sichere Klassifikationen sortieren)
+vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+  --sort-output ~/sorted-birds/ \
+  --min-confidence 0.85
+
+# Vollständig: CSV + Sortieren + Top-3 Vorhersagen
+vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+  --csv-report results.csv \
+  --sort-output ~/sorted-birds/ \
+  --top-k 3 \
+  --batch-size 32
+```
+
+**Dateiverwaltungs-Optionen:**
+
+```bash
+# Standard: Kopieren (Original bleibt erhalten)
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/
+
+# Verschieben statt Kopieren (spart Speicherplatz)
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/ \
+  --move
+
+# Quellverzeichnis nach Verarbeitung löschen
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/ \
+  --delete-source
+
+# Kombination: Verschieben + Quellverzeichnis aufräumen
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/ \
+  --move \
+  --delete-source
+
+# Probelauf (nichts wird geändert)
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/ \
+  --delete-source \
+  --dry-run
+
+# Für Skripte: Bestätigungs-Prompt überspringen
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/ \
+  --delete-source \
+  --force
+```
+
+**Parameter:**
+- `model`: Pfad zum trainierten Modell (erforderlich)
+- `input`: Verzeichnis mit zu klassifizierenden Bildern (erforderlich)
+- `--sort-output, -s`: Ausgabeverzeichnis für nach Arten sortierte Bilder
+- `--min-confidence`: Minimale Confidence für Sortierung (0.0-1.0, Standard: 0.0)
+- `--csv-report, -c`: CSV-Datei mit detaillierten Klassifizierungsergebnissen
+- `--top-k, -k`: Anzahl Top-Vorhersagen (1-5, Standard: 1)
+- `--batch-size, -b`: Verarbeitungs-Batch-Größe (Standard: 32)
+- `--move`: Dateien verschieben statt kopieren (spart Speicherplatz)
+- `--delete-source`: ⚠️ Quellverzeichnis nach Verarbeitung löschen
+- `--force, -f`: Bestätigungs-Prompts überspringen (für Automatisierung)
+- `--dry-run`: Probelauf ohne tatsächliche Änderungen
+- `--no-recursive`: Nur Top-Level Bilder verarbeiten
+
+**CSV-Format:**
+```csv
+filename,predicted_species,confidence,top_2_species,top_2_confidence,top_3_species,top_3_confidence
+bird001.jpg,blaumeise,0.9750,kohlmeise,0.0180,rotkehlchen,0.0045
+bird002.jpg,amsel,0.9200,rotkehlchen,0.0520,buchfink,0.0210
+```
+
+**Ausgabe-Struktur:**
+```
+sorted-birds/
+├── blaumeise/       # Klassifiziert als Blaumeise
+├── kohlmeise/       # Klassifiziert als Kohlmeise
+├── rotkehlchen/     # Klassifiziert als Rotkehlchen
+└── unknown/         # Unter Confidence-Schwelle
+```
+
+**Anwendungsfälle:**
+- 📸 **Camera-Trap-Auswertung**: Automatische Artbestimmung für tausende Fotos
+- 🔍 **Citizen Science**: Hobby-Ornithologen können ihre Fotos klassifizieren
+- 📊 **Monitoring-Projekte**: Zeitreihen-Analysen von Vogelpopulationen
+- ✅ **Dataset-Qualität**: Existierende Datasets auf Fehlklassifikationen prüfen
+
+**Sicherheitshinweise:**
+- ⚠️ `--delete-source` löscht das Quellverzeichnis **DAUERHAFT**
+- 💡 Immer erst `--dry-run` ausführen zum Testen
+- 📦 Backups vor `--delete-source` erstellen
+- ✅ `--move` als sichere Alternative (behält Originale in sorted/)
 
 ---
 

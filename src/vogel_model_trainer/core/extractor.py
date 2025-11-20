@@ -322,9 +322,9 @@ def convert_bird_images(source_dir, target_dir, remove_bg=True, bg_color=(128, 1
         print(f"❌ No images found in: {source_dir}")
         return
     
-    print(f"🖼️  Found {len(image_files)} image(s) to convert")
-    print(f"📁 Source: {source_path}")
-    print(f"📁 Target: {target_path}")
+    print(_("convert_images_found", count=len(image_files)))
+    print(_("convert_source_dir", path=source_path))
+    print(_("convert_target_dir", path=target_path))
     print()
     
     # Statistics
@@ -443,8 +443,8 @@ def convert_bird_images(source_dir, target_dir, remove_bg=True, bg_color=(128, 1
     print("\n" + "=" * 60)
     print("✅ Conversion complete!")
     print("=" * 60)
-    print(f"📁 Target directory: {target_path}")
-    print(f"🖼️  Total processed: {len(image_files)}")
+    print(_("convert_target_directory", path=target_path))
+    print(_("convert_total_processed", count=len(image_files)))
     print(f"✅ Converted: {converted_count}")
     
     if skipped_quality > 0:
@@ -456,7 +456,7 @@ def convert_bird_images(source_dir, target_dir, remove_bg=True, bg_color=(128, 1
     # Quality report
     if quality_report and quality_stats['accepted']:
         print("\n" + "=" * 60)
-        print("📊 Quality Report")
+        print(_("convert_quality_report"))
         print("=" * 60)
         
         total = len(image_files)
@@ -1349,7 +1349,7 @@ Examples:
         parser.error("--folder is required for extraction mode")
     
     # Define supported extensions
-    VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mov', '.mkv', '.MP4', '.AVI', '.MOV', '.MKV'}
+    VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mov', '.mkv', '.webm', '.ogv', '.MP4', '.AVI', '.MOV', '.MKV', '.WEBM', '.OGV'}
     IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.JPG', '.JPEG', '.PNG', '.BMP', '.TIFF'}
     
     # Collect files
@@ -1391,11 +1391,11 @@ Examples:
     
     # Show what will be processed
     total_files = len(video_files) + len(image_files)
-    print(f"📁 Found {total_files} file(s) to process:")
+    print(_("files_found_header", total=total_files))
     if video_files:
-        print(f"   🎬 {len(video_files)} video(s)")
+        print(_("files_videos_count", count=len(video_files)))
     if image_files:
-        print(f"   🖼️  {len(image_files)} image(s)")
+        print(_("files_images_count", count=len(image_files)))
     
     # Show first 10 files
     all_files = video_files + image_files
@@ -1403,7 +1403,7 @@ Examples:
         file_type = "🎬" if f.suffix in VIDEO_EXTENSIONS else "🖼️"
         print(f"   {i}. {file_type} {f.name}")
     if len(all_files) > 10:
-        print(f"   ... and {len(all_files) - 10} more")
+        print(_("files_and_more", count=len(all_files) - 10))
     print()
     
     # Validate that only one sorting method is used
@@ -1441,12 +1441,12 @@ Examples:
     # Process video files
     if video_files:
         print(f"\n{'='*70}")
-        print(f"🎬 Processing {len(video_files)} video file(s)")
+        print(_("processing_videos_header", count=len(video_files)))
         print(f"{'='*70}\n")
         
         for idx, video_file in enumerate(video_files, 1):
             print(f"\n{'='*70}")
-            print(f"📹 Processing video {idx}/{len(video_files)}: {video_file.name}")
+            print(_("processing_video_item", idx=idx, total=len(video_files), name=video_file.name))
             print(f"{'='*70}")
             
             try:
@@ -1463,12 +1463,12 @@ Examples:
     # Process image files
     if image_files:
         print(f"\n{'='*70}")
-        print(f"🖼️  Processing {len(image_files)} image file(s)")
+        print(_("processing_images_header", count=len(image_files)))
         print(f"{'='*70}\n")
         
         for idx, image_file in enumerate(image_files, 1):
             print(f"\n{'='*70}")
-            print(f"📸 Processing image {idx}/{len(image_files)}: {image_file.name}")
+            print(_("processing_image_item", idx=idx, total=len(image_files), name=image_file.name))
             print(f"{'='*70}")
             
             try:

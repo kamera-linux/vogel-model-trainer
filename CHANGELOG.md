@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.20] - 2025-11-20
+
+### Added
+- **🎯 Bulk Image Classification**: New `classify` command for batch bird image classification
+  - Classify large batches of images with trained models
+  - CSV export with Top-K predictions and confidence scores
+  - Auto-sorting by species into separate folders
+  - Configurable confidence threshold for quality filtering
+  - Processing statistics and species distribution report
+  - Example: `vogel-trainer classify ~/models/final/ ~/images/ --csv-report results.csv --sort-output ~/sorted/`
+
+- **📁 Advanced File Management Options**:
+  - `--move`: Move files instead of copying (saves disk space)
+  - `--delete-source`: Delete source directory after successful processing
+  - `--dry-run`: Simulate operations without actual file changes
+  - `--force`: Skip confirmation prompts for automation
+  - Safety features: Confirmation prompts for destructive operations
+  - Example: `vogel-trainer classify ~/models/final/ ~/images/ --sort-output ~/sorted/ --move --delete-source --force`
+
+- **📊 Classification Features**:
+  - `--top-k N`: Report Top-1 to Top-5 predictions per image
+  - `--batch-size N`: Configurable processing batch size for performance
+  - `--min-confidence N`: Minimum confidence threshold for sorting (0.0-1.0)
+  - `--no-recursive`: Option to process only top-level images
+  - Unknown folder for images below confidence threshold
+  - Automatic filename conflict resolution
+
+- **💾 CSV Export Format**:
+  - Detailed classification results with multiple prediction columns
+  - Format: `filename, predicted_species, confidence, top_2_species, top_2_confidence, ...`
+  - Compatible with spreadsheet software and data analysis tools
+  - Example output: `bird001.jpg, kohlmeise, 0.9750, blaumeise, 0.0180, ...`
+
+- **🌍 i18n Support**: 37 new translation keys for classification features
+  - English, German, Japanese translations
+  - Keys: `classify_header`, `classify_loading_model`, `classify_processing_header`, etc.
+  - Localized progress messages, warnings, and statistics
+
+### Documentation
+- **📚 Comprehensive Documentation**: Updated all README files (EN, DE, JA)
+  - Complete classify command section with examples
+  - File management options with safety notes
+  - CSV format documentation
+  - Use cases: Camera trap analysis, citizen science, monitoring, dataset quality
+  - Parameter reference with defaults
+
 ## [0.1.19] - 2025-11-19
 
 ### Added

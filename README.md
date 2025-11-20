@@ -35,6 +35,7 @@ A specialized toolkit for creating high-accuracy bird species classifiers tailor
 - 📊 **Advanced Training Options** - 13 configurable parameters for fine-tuning
 - 🔧 **Dataset Deduplication** - Clean existing datasets with perceptual hashing
 - ⏸️ **Graceful Shutdown** - Save model state on Ctrl+C interruption
+- 🎯 **Bulk Classification** - Classify thousands of images with CSV export and auto-sorting
 - 🌍 **Full i18n Support** - English, German, Japanese translations
 - 📈 **Per-Species Metrics** - Detailed accuracy breakdown by species
 
@@ -118,18 +119,6 @@ python scripts/setup_onnxruntime.py
 - 🎮 **CUDA GPU** (NVIDIA) → Uses `onnxruntime-gpu` (faster background removal)
 - 💻 **CPU-only** (Raspberry Pi, ARM64, etc.) → Uses `onnxruntime` (compatible)
 ```
-
-### 🎥 Video Tutorials
-
-Learn vogel-model-trainer with step-by-step video guides:
-
-- **Getting Started** - Installation and first extraction (5 min)
-- **Extracting Birds** - Quality filters, deduplication, species classification (10 min)
-- **Organizing Datasets** - Train/val splits, class balance management (8 min) **NEW in v0.1.8**
-- **Training Models** - Custom classifier training and parameters (12 min)
-- **Testing & Evaluation** - Model testing and performance analysis (7 min)
-
-📺 *Video tutorials coming soon!*
 
 ### Basic Workflow
 
@@ -280,10 +269,14 @@ vogel-trainer extract ~/Videos/ \
 - `--min-sharpness`: **NEW v0.1.9** - Minimum sharpness score (Laplacian variance, typical: 100-300)
 - `--min-edge-quality`: **NEW v0.1.9** - Minimum edge quality (Sobel gradient, typical: 50-150)
 - `--save-quality-report`: **NEW v0.1.9** - Generate detailed quality statistics report
-- `--remove-background`: **🧪 EXPERIMENTAL v0.1.11** - Remove background using AI (rembg)
-- `--crop-padding`: **NEW v0.1.15** - Pixels to expand mask around bird (preserves details like feet/beak)
-- `--bg-color [white|black|gray]`: **🧪 EXPERIMENTAL v0.1.11** - Background color (default: white)
+- `--remove-background`: **🧪 EXPERIMENTAL v0.1.11** - Remove background using rembg AI
+- `--crop-padding`: **NEW v0.1.15** - Pixels to expand mask around bird (keeps details like feet/beak)
+- `--bg-color [white|black|gray]`: **🧪 EXPERIMENTAL v0.1.11** - Background color (default: gray)
 - `--bg-model [u2net|u2netp|isnet-general-use]`: **🧪 EXPERIMENTAL v0.1.11** - AI model for background removal (default: u2net)
+- `--bg-transparent`: **NEW v0.1.14** - Create PNG with transparent background (default: disabled, gray background)
+- `--no-bg-transparent`: **NEW v0.1.14** - Disable transparency, use colored background (default)
+- `--bg-fill-black`: **NEW v0.1.14** - Make black padding areas transparent (requires --bg-transparent, preserves black feathers)
+- `--no-bg-fill-black`: **NEW v0.1.14** - Keep black padding areas opaque (default)
 - `--recursive, -r`: Search directories recursively
 - `--log`: Save console output to log file (`/var/log/vogel-kamera-linux/YYYY/KWXX/`)
 
@@ -338,11 +331,11 @@ vogel-trainer extract ~/photos/ \
 vogel-trainer extract photo.jpg \
   --folder ~/training-data/ \
   --bird kohlmeise \
-  --bg-remove \
+  --remove-background \
   --bg-transparent \
   --crop-padding 10 \
   --min-sharpness 100 \
-  --quality-report
+  --save-quality-report
 
 # Auto-classification with trained model
 vogel-trainer extract photo.jpg \
@@ -358,58 +351,6 @@ vogel-trainer extract "~/photos/*.jpg" \
 ```
 
 **Note:** All video extraction parameters (filtering, background removal, quality control) are available for image extraction.
-
-#### 🔄 Convert Mode (New in v0.1.16)
-
-Process existing bird crop images **without YOLO detection**. Useful for normalizing existing datasets:
-
-```bash
-# Convert existing crops to transparent background
-vogel-trainer extract \
-  --convert \
-  --source ~/raw-bird-data/ \
-  --target ~/transparent-bird-data/ \
-  --bg-remove \
-  --bg-transparent \
-  --crop-padding 10
-
-# Normalize with quality filtering and deduplication
-vogel-trainer extract \
-  --convert \
-  --source ~/existing-dataset/ \
-  --target ~/normalized-dataset/ \
-  --bg-remove \
-  --bg-color 128,128,128 \
-  --min-sharpness 80 \
-  --min-edge-quality 50 \
-  --deduplicate \
-  --quality-report
-
-# Convert to gray background (optimal for training)
-vogel-trainer extract \
-  --convert \
-  --source ~/vogel-training-data-species/ \
-  --target ~/vogel-training-data-gray/ \
-  --bg-remove \
-  --bg-color 128,128,128 \
-  --crop-padding 15
-```
-
-**Convert Mode Features:**
-- ✅ Maintains folder structure (species subdirectories preserved)
-- ✅ Direct image processing (no YOLO overhead, ~0.3-1s per image)
-- ✅ All quality filters available (sharpness, edge quality, blur detection)
-- ✅ Background removal with transparent or custom color
-- ✅ Deduplication with perceptual hashing
-- ✅ Batch statistics and quality reports
-
-**Use Cases:**
-- Normalize existing datasets from different sources
-- Add transparent backgrounds to legacy datasets
-- Apply consistent quality filtering across old data
-- Remove duplicates from merged datasets
-- Prepare datasets for model comparability
-```
 
 **🧪 Background Removal (EXPERIMENTAL v0.1.11+, Stable v0.1.14):**
 
@@ -822,14 +763,153 @@ vogel-trainer quality-check ~/data/ --mode move --recursive
 
 ### 6. Test Model
 
+**Test on single image:**
 ```bash
-# Test on validation dataset
-vogel-trainer test ~/models/my-classifier/ -d ~/organized-data/
+# With full output (Top-5 predictions)
+vogel-trainer test ~/models/final/ -i image.jpg
+vogel-trainer test ~/models/final/ --image photo.jpg
+
+# Short form (without flag)
+vogel-trainer test ~/models/final/ image.jpg
 
 # Output:
-# 🧪 Testing model on validation set...
-#    🐦 Predicted: great-tit (98.5% confidence)
+# 🖼️  Classifying image: image.jpg
+# 
+# Results:
+# ==================================================
+# 1. kohlmeise      - 0.9850 (98.5%)
+# 2. blaumeise      - 0.0120 (1.2%)
+# 3. sumpfmeise     - 0.0025 (0.3%)
+# 4. tannenmeise    - 0.0003 (0.0%)
+# 5. haubenmeise    - 0.0002 (0.0%)
 ```
+
+**Test on validation set:**
+```bash
+# Tests model on complete validation data
+vogel-trainer test ~/models/final/ -d ~/organized-data/
+vogel-trainer test ~/models/final/ --data ~/dataset/
+
+# Output:
+# 🧪 Testing on validation set: ~/organized-data/val
+# ======================================================================
+#    kohlmeise   : 5/5 = 100.0%
+#    blaumeise   : 4/5 = 80.0%
+#    rotkehlchen : 5/5 = 100.0%
+# ======================================================================
+# 📊 Overall accuracy: 14/15 = 93.3%
+```
+
+**Parameters:**
+- `model`: Path to trained model (required)
+- `-i, --image`: Test single image (shows Top-5 predictions)
+- `-d, --data`: Test validation set (calculates accuracy)
+
+**Note:** Either `-i` or `-d` must be specified!
+
+### 7. Classify Images (Batch Inference)
+
+Classify large batches of bird images automatically with your trained model:
+
+```bash
+# Simple classification with CSV export
+vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+  --csv-report results.csv
+
+# Auto-sort images by species
+vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+  --sort-output ~/sorted-birds/
+
+# With confidence threshold (only sort high-confidence classifications)
+vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+  --sort-output ~/sorted-birds/ \
+  --min-confidence 0.85
+
+# Full: CSV + sorting + Top-3 predictions
+vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+  --csv-report results.csv \
+  --sort-output ~/sorted-birds/ \
+  --top-k 3 \
+  --batch-size 32
+```
+
+**File Management Options:**
+
+```bash
+# Default: Copy files (originals remain)
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/
+
+# Move instead of copy (saves disk space)
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/ \
+  --move
+
+# Delete source directory after processing
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/ \
+  --delete-source
+
+# Combination: Move + cleanup source directory
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/ \
+  --move \
+  --delete-source
+
+# Dry run (simulate without changes)
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/ \
+  --delete-source \
+  --dry-run
+
+# For scripts: Skip confirmation prompts
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/ \
+  --delete-source \
+  --force
+```
+
+**Parameters:**
+- `model`: Path to trained model (required)
+- `input`: Directory containing images to classify (required)
+- `--sort-output, -s`: Output directory for images sorted by species
+- `--min-confidence`: Minimum confidence threshold for sorting (0.0-1.0, default: 0.0)
+- `--csv-report, -c`: CSV file for detailed classification results
+- `--top-k, -k`: Number of top predictions to report (1-5, default: 1)
+- `--batch-size, -b`: Processing batch size (default: 32)
+- `--move`: Move files instead of copying (saves disk space)
+- `--delete-source`: ⚠️ Delete source directory after processing
+- `--force, -f`: Skip confirmation prompts (for automation)
+- `--dry-run`: Simulate operations without actual file changes
+- `--no-recursive`: Only process top-level images
+
+**CSV Format:**
+```csv
+filename,predicted_species,confidence,top_2_species,top_2_confidence,top_3_species,top_3_confidence
+bird001.jpg,blue_tit,0.9750,great_tit,0.0180,robin,0.0045
+bird002.jpg,blackbird,0.9200,robin,0.0520,chaffinch,0.0210
+```
+
+**Output Structure:**
+```
+sorted-birds/
+├── blue_tit/        # Classified as Blue Tit
+├── great_tit/       # Classified as Great Tit
+├── robin/           # Classified as Robin
+└── unknown/         # Below confidence threshold
+```
+
+**Use Cases:**
+- 📸 **Camera Trap Analysis**: Automatic species identification for thousands of photos
+- 🔍 **Citizen Science**: Hobby ornithologists can classify their photos
+- 📊 **Monitoring Projects**: Time-series analysis of bird populations
+- ✅ **Dataset Quality**: Check existing datasets for misclassifications
+
+**Safety Notes:**
+- ⚠️ `--delete-source` deletes the source directory **PERMANENTLY**
+- 💡 Always run `--dry-run` first to preview
+- 📦 Create backups before using `--delete-source`
+- ✅ `--move` is safer (keeps originals in sorted/)
 
 ---
 

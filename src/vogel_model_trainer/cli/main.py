@@ -297,7 +297,30 @@ def clean_gray_command(args):
     print(f"   • Max gray ratio: {args.max_gray*100:.0f}%")
     print(f"   • Gray tolerance: ±{args.gray_tolerance}")
     print()
+
+
+def classify_command(args):
+    """Execute the classify command for bulk bird image classification."""
+    from vogel_model_trainer.core import classifier
     
+    # Run classification
+    classifier.classify_images(
+        model_path=args.model,
+        input_dir=args.input,
+        sort_output=args.sort_output,
+        min_confidence=args.min_confidence,
+        csv_report=args.csv_report,
+        top_k=args.top_k,
+        batch_size=args.batch_size,
+        move=args.move,
+        delete_source=args.delete_source,
+        force=args.force,
+        dry_run=args.dry_run,
+        recursive=not args.no_recursive
+    )
+    
+    return 0
+
     invalid_images = []
     total_checked = 0
     
@@ -1025,6 +1048,73 @@ For more information, visit:
         help="Search recursively through subdirectories"
     )
     clean_gray_parser.set_defaults(func=clean_gray_command)
+    
+    # ========== CLASSIFY COMMAND ==========
+    classify_parser = subparsers.add_parser(
+        "classify",
+        help="Classify bird images in bulk with trained model",
+        description="Batch classification of bird images with CSV export and auto-sorting"
+    )
+    classify_parser.add_argument(
+        "model",
+        help="Path to trained model directory"
+    )
+    classify_parser.add_argument(
+        "input",
+        help="Input directory containing images to classify"
+    )
+    classify_parser.add_argument(
+        "--sort-output", "-s",
+        help="Output directory for sorted images (by species)"
+    )
+    classify_parser.add_argument(
+        "--min-confidence",
+        type=float,
+        default=0.0,
+        help="Minimum confidence threshold for sorting (0.0-1.0, default: 0.0)"
+    )
+    classify_parser.add_argument(
+        "--csv-report", "-c",
+        help="Export classification results to CSV file"
+    )
+    classify_parser.add_argument(
+        "--top-k", "-k",
+        type=int,
+        default=1,
+        help="Number of top predictions to report (1-5, default: 1)"
+    )
+    classify_parser.add_argument(
+        "--batch-size", "-b",
+        type=int,
+        default=32,
+        help="Processing batch size (default: 32)"
+    )
+    classify_parser.add_argument(
+        "--move",
+        action="store_true",
+        help="Move files instead of copying when sorting (saves disk space)"
+    )
+    classify_parser.add_argument(
+        "--delete-source",
+        action="store_true",
+        help="Delete source directory after successful processing (use with caution!)"
+    )
+    classify_parser.add_argument(
+        "--force", "-f",
+        action="store_true",
+        help="Skip confirmation prompts (for scripting)"
+    )
+    classify_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Simulate operations without moving/copying files"
+    )
+    classify_parser.add_argument(
+        "--no-recursive",
+        action="store_true",
+        help="Don't search recursively (only process top-level images)"
+    )
+    classify_parser.set_defaults(func=classify_command)
     
     # Parse arguments and execute command
     args = parser.parse_args()

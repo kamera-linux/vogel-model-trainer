@@ -35,6 +35,7 @@
 - 📊 **高度なトレーニングオプション** - 微調整のための13個の設定可能パラメータ
 - 🔧 **データセット重複除去** - 知覚ハッシュで既存データセットをクリーニング
 - ⏸️ **グレースフルシャットダウン** - Ctrl+C中断時にモデル状態を保存
+- 🎯 **バッチ分類** - CSVエクスポートと自動振り分けで何千枚もの画像を分類
 - 🌍 **完全なi18n対応** - 英語、ドイツ語、日本語の翻訳
 - 📈 **種ごとのメトリクス** - 種ごとの詳細な精度内訳
 
@@ -118,18 +119,6 @@ python scripts/setup_onnxruntime.py
 - 🎮 **CUDA GPU**（NVIDIA） → `onnxruntime-gpu`を使用（高速な背景除去）
 - 💻 **CPUのみ**（Raspberry Pi、ARM64など） → `onnxruntime`を使用（互換性あり)
 ```
-
-### 🎥 ビデオチュートリアル
-
-ステップバイステップのビデオガイドでvogel-model-trainerを学ぶ：
-
-- **はじめに** - インストールと最初の抽出（5分）
-- **鳥の抽出** - 品質フィルター、重複削除、種分類（10分）
-- **データセット整理** - Train/Val分割、クラスバランス管理（8分）**v0.1.8の新機能**
-- **モデルトレーニング** - カスタム分類器のトレーニングとパラメータ（12分）
-- **テストと評価** - モデルテストとパフォーマンス分析（7分）
-
-📺 *ビデオチュートリアルは近日公開！*
 
 ### 基本的なワークフロー
 
@@ -278,10 +267,14 @@ vogel-trainer extract ~/Videos/ \
 - `--min-sharpness`: **NEW v0.1.9** - 最小シャープネススコア（ラプラシアン分散、一般的に100-300）
 - `--min-edge-quality`: **NEW v0.1.9** - 最小エッジ品質（ソーベル勾配、一般的に50-150）
 - `--save-quality-report`: **NEW v0.1.9** - 詳細な品質レポートを生成
-- `--remove-background`: **🧪 実験的 v0.1.11** - AIで背景を除去（rembg）
+- `--remove-background`: **🧪 実験的 v0.1.11** - AIで背景を除去(rembg)
 - `--crop-padding`: **NEW v0.1.15** - 鳥の周りのマスクを拡張するピクセル数（足/くちばしなどの詳細を保持）
-- `--bg-color [white|black|gray]`: **🧪 実験的 v0.1.11** - 背景色（デフォルト: white）
+- `--bg-color [white|black|gray]`: **🧪 実験的 v0.1.11** - 背景色（デフォルト: gray）
 - `--bg-model [u2net|u2netp|isnet-general-use]`: **🧪 実験的 v0.1.11** - 背景除去用AIモデル（デフォルト: u2net）
+- `--bg-transparent`: **NEW v0.1.14** - 透明な背景でPNGを作成（デフォルト: 無効、グレー背景）
+- `--no-bg-transparent`: **NEW v0.1.14** - 透明度を無効化、色付き背景を使用（デフォルト）
+- `--bg-fill-black`: **NEW v0.1.14** - 黒いパディング領域を透明にする（--bg-transparentが必要、黒い羽根は保持）
+- `--no-bg-fill-black`: **NEW v0.1.14** - 黒いパディング領域を不透明に保つ（デフォルト)
 - `--deduplicate`: 重複/類似画像をスキップ（知覚ハッシュ）
 - `--similarity-threshold`: 重複のための類似度しきい値 - ハミング距離 0-64（デフォルト: 5）
 - `--recursive, -r`: ディレクトリを再帰的に検索
@@ -334,15 +327,15 @@ vogel-trainer extract ~/photos/ \
   --bird blaumeise \
   --recursive
 
-# 背景除去と品質フィルタリング付き
+# 背景除去と品質フィルタリング
 vogel-trainer extract photo.jpg \
   --folder ~/training-data/ \
   --bird kohlmeise \
-  --bg-remove \
+  --remove-background \
   --bg-transparent \
   --crop-padding 10 \
   --min-sharpness 100 \
-  --quality-report
+  --save-quality-report
 
 # 訓練済みモデルで自動分類
 vogel-trainer extract photo.jpg \
@@ -358,57 +351,6 @@ vogel-trainer extract "~/photos/*.jpg" \
 ```
 
 **注:** すべての動画抽出パラメータ（フィルタリング、背景除去、品質管理）が画像抽出で利用可能です。
-
-#### 🔄 変換モード（v0.1.16の新機能）
-
-**YOLO検出なし**で既存の鳥クロップ画像を処理。既存のデータセットの正規化に便利:
-
-```bash
-# 既存のクロップを透明背景に変換
-vogel-trainer extract \
-  --convert \
-  --source ~/raw-bird-data/ \
-  --target ~/transparent-bird-data/ \
-  --bg-remove \
-  --bg-transparent \
-  --crop-padding 10
-
-# 品質フィルタリングと重複除去による正規化
-vogel-trainer extract \
-  --convert \
-  --source ~/existing-dataset/ \
-  --target ~/normalized-dataset/ \
-  --bg-remove \
-  --bg-color 128,128,128 \
-  --min-sharpness 80 \
-  --min-edge-quality 50 \
-  --deduplicate \
-  --quality-report
-
-# グレー背景に変換（トレーニングに最適）
-vogel-trainer extract \
-  --convert \
-  --source ~/vogel-training-data-species/ \
-  --target ~/vogel-training-data-gray/ \
-  --bg-remove \
-  --bg-color 128,128,128 \
-  --crop-padding 15
-```
-
-**変換モードの機能:**
-- ✅ フォルダ構造を維持（種のサブディレクトリが保持される）
-- ✅ 直接画像処理（YOLOオーバーヘッドなし、画像あたり約0.3-1秒）
-- ✅ すべての品質フィルタが利用可能（シャープネス、エッジ品質、ボケ検出）
-- ✅ 透明またはカスタムカラーでの背景除去
-- ✅ 知覚ハッシュによる重複除去
-- ✅ バッチ統計と品質レポート
-
-**使用例:**
-- 異なるソースからの既存データセットを正規化
-- レガシーデータセットに透明背景を追加
-- 古いデータに一貫した品質フィルタリングを適用
-- マージされたデータセットから重複を削除
-- モデル比較のためのデータセット準備
 
 **🧪 背景除去（実験的 v0.1.11+、安定版 v0.1.14）:**
 
@@ -556,21 +498,155 @@ vogel-trainer train ~/organized-data/ -o ~/models/my-classifier/
 
 ### 4. モデルのテスト
 
+**単一画像のテスト:**
 ```bash
-# 検証データセットでテスト
-vogel-trainer test ~/models/my-classifier/ -d ~/organized-data/
+# 完全な出力（トップ5予測）
+vogel-trainer test ~/models/final/ -i image.jpg
+vogel-trainer test ~/models/final/ --image photo.jpg
+
+# 短い形式（フラグなし）
+vogel-trainer test ~/models/final/ image.jpg
 
 # 出力:
-# 🧪 検証セットでモデルをテスト中...
-# 📊 精度: 96.5%
-#
-# 種ごとの結果:
-#   great-tit: 98.2%
-#   blue-tit:  95.7%
-#   robin:     95.8%
+# 🖼️  Classifying image: image.jpg
+# 
+# Results:
+# ==================================================
+# 1. kohlmeise      - 0.9850 (98.5%)
+# 2. blaumeise      - 0.0120 (1.2%)
+# 3. sumpfmeise     - 0.0025 (0.3%)
+# 4. tannenmeise    - 0.0003 (0.0%)
+# 5. haubenmeise    - 0.0002 (0.0%)
 ```
 
-### 5. 画質チェック（新機能！）
+**検証セットのテスト:**
+```bash
+# 完全な検証データでモデルをテスト
+vogel-trainer test ~/models/final/ -d ~/organized-data/
+vogel-trainer test ~/models/final/ --data ~/dataset/
+
+# 出力:
+# 🧪 Testing on validation set: ~/organized-data/val
+# ======================================================================
+#    kohlmeise   : 5/5 = 100.0%
+#    blaumeise   : 4/5 = 80.0%
+#    rotkehlchen : 5/5 = 100.0%
+# ======================================================================
+# 📊 Overall accuracy: 14/15 = 93.3%
+```
+
+**パラメータ:**
+- `model`: トレーニング済みモデルへのパス（必須）
+- `-i, --image`: 単一画像をテスト（トップ5予測を表示）
+- `-d, --data`: 検証セットをテスト（精度を計算）
+
+**注意:** `-i`または`-d`のいずれかを指定する必要があります！
+
+### 5. 画像分類（バッチ推論）
+
+トレーニング済みモデルで大量の鳥画像を自動分類:
+
+```bash
+# CSVエクスポート付きシンプル分類
+vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+  --csv-report results.csv
+
+# 種別に画像を自動振り分け
+vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+  --sort-output ~/sorted-birds/
+
+# 信頼度閾値付き（高信頼度分類のみ振り分け）
+vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+  --sort-output ~/sorted-birds/ \
+  --min-confidence 0.85
+
+# フル機能: CSV + 振り分け + トップ3予測
+vogel-trainer classify ~/models/final/ ~/camera-trap-images/ \
+  --csv-report results.csv \
+  --sort-output ~/sorted-birds/ \
+  --top-k 3 \
+  --batch-size 32
+```
+
+**ファイル管理オプション:**
+
+```bash
+# デフォルト: コピー（元ファイルは残る）
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/
+
+# コピーの代わりに移動（ディスク容量節約）
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/ \
+  --move
+
+# 処理後にソースディレクトリを削除
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/ \
+  --delete-source
+
+# 組み合わせ: 移動 + ソースディレクトリクリーンアップ
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/ \
+  --move \
+  --delete-source
+
+# ドライラン（変更なしでシミュレート）
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/ \
+  --delete-source \
+  --dry-run
+
+# スクリプト用: 確認プロンプトをスキップ
+vogel-trainer classify ~/models/final/ ~/images/ \
+  --sort-output ~/sorted/ \
+  --delete-source \
+  --force
+```
+
+**パラメータ:**
+- `model`: トレーニング済みモデルへのパス（必須）
+- `input`: 分類する画像を含むディレクトリ（必須）
+- `--sort-output, -s`: 種別に振り分けられた画像の出力ディレクトリ
+- `--min-confidence`: 振り分けの最小信頼度閾値（0.0-1.0、デフォルト: 0.0）
+- `--csv-report, -c`: 詳細な分類結果のCSVファイル
+- `--top-k, -k`: レポートするトップ予測数（1-5、デフォルト: 1）
+- `--batch-size, -b`: 処理バッチサイズ（デフォルト: 32）
+- `--move`: コピーの代わりにファイルを移動（ディスク容量節約）
+- `--delete-source`: ⚠️ 処理後にソースディレクトリを削除
+- `--force, -f`: 確認プロンプトをスキップ（自動化用）
+- `--dry-run`: 実際のファイル変更なしで操作をシミュレート
+- `--no-recursive`: トップレベルの画像のみ処理
+
+**CSV形式:**
+```csv
+filename,predicted_species,confidence,top_2_species,top_2_confidence,top_3_species,top_3_confidence
+bird001.jpg,シジュウカラ,0.9750,ヤマガラ,0.0180,コマドリ,0.0045
+bird002.jpg,ツグミ,0.9200,コマドリ,0.0520,アトリ,0.0210
+```
+
+**出力構造:**
+```
+sorted-birds/
+├── シジュウカラ/    # シジュウカラとして分類
+├── ヤマガラ/       # ヤマガラとして分類
+├── コマドリ/       # コマドリとして分類
+└── unknown/       # 信頼度閾値未満
+```
+
+**使用例:**
+- 📸 **カメラトラップ分析**: 何千枚もの写真の自動種同定
+- 🔍 **市民科学**: 趣味のバードウォッチャーが写真を分類
+- 📊 **モニタリングプロジェクト**: 鳥類個体群の時系列分析
+- ✅ **データセット品質**: 既存のデータセットの誤分類をチェック
+
+**安全上の注意:**
+- ⚠️ `--delete-source`はソースディレクトリを**完全に削除**します
+- 💡  常に最初に`--dry-run`でプレビュー
+- 📦 `--delete-source`使用前にバックアップを作成
+- ✅ `--move`の方が安全（元ファイルはsorted/に残る）
+
+### 6. 画質チェック（新機能！）
 
 データセットの低品質画像（ぼやけ、小さすぎる、破損、露出問題）をチェック:
 
