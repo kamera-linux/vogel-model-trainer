@@ -321,6 +321,23 @@ def classify_command(args):
     
     return 0
 
+
+def evaluate_command(args):
+    """Execute the evaluate command for model evaluation and analytics."""
+    from vogel_model_trainer.core import evaluator
+    
+    # Run evaluation
+    evaluator.evaluate_model(
+        model_path=args.species_model,
+        test_dir=args.test_dir,
+        export_misclassified=args.export_misclassified,
+        export_json=args.export_json,
+        min_confidence=args.min_confidence if hasattr(args, 'min_confidence') else 0.0
+    )
+    
+    return 0
+
+
     invalid_images = []
     total_checked = 0
     
@@ -1116,6 +1133,38 @@ For more information, visit:
         help="Don't search recursively (only process top-level images)"
     )
     classify_parser.set_defaults(func=classify_command)
+    
+    # ========== EVALUATE COMMAND ==========
+    evaluate_parser = subparsers.add_parser(
+        "evaluate",
+        help="Evaluate model performance with test dataset",
+        description="Comprehensive model evaluation with confusion matrix, per-species metrics, and misclassification analysis"
+    )
+    evaluate_parser.add_argument(
+        "--species-model",
+        required=True,
+        help="Path to trained model directory or Hugging Face model ID"
+    )
+    evaluate_parser.add_argument(
+        "--test-dir",
+        required=True,
+        help="Test directory with species subfolders (e.g., test/kohlmeise/, test/blaumeise/)"
+    )
+    evaluate_parser.add_argument(
+        "--export-misclassified",
+        help="Export misclassified images to CSV file"
+    )
+    evaluate_parser.add_argument(
+        "--export-json",
+        help="Export all metrics to JSON file"
+    )
+    evaluate_parser.add_argument(
+        "--min-confidence",
+        type=float,
+        default=0.0,
+        help="Minimum confidence threshold for evaluation (0.0-1.0, default: 0.0)"
+    )
+    evaluate_parser.set_defaults(func=evaluate_command)
     
     # Parse arguments and execute command
     args = parser.parse_args()

@@ -959,6 +959,131 @@ sorted-birds/
 
 ---
 
+### 8. Modell-Performance evaluieren
+
+Umfassende Modell-Evaluierung mit detaillierten Metriken und Fehleranalyse:
+
+```bash
+# Basis-Evaluierung auf Test-Set
+vogel-trainer evaluate \
+  --species-model ~/models/final/ \
+  --test-dir ~/test-dataset/
+
+# Mit Hugging Face Modell
+vogel-trainer evaluate \
+  --species-model kamera-linux/german-bird-classifier \
+  --test-dir ~/test-dataset/
+
+# Vollständige Analyse mit Exporten
+vogel-trainer evaluate \
+  --species-model ~/models/final/ \
+  --test-dir ~/test-dataset/ \
+  --export-misclassified fehlklassifikationen.csv \
+  --export-json metriken.json
+```
+
+**Test-Verzeichnis-Struktur:**
+```
+test-dataset/
+├── blaumeise/          # Ground Truth: Blaumeise
+│   ├── image001.jpg
+│   └── image002.jpg
+├── kohlmeise/          # Ground Truth: Kohlmeise
+│   ├── image003.jpg
+│   └── image004.jpg
+└── rotkehlchen/        # Ground Truth: Rotkehlchen
+    ├── image005.jpg
+    └── image006.jpg
+```
+
+**Ausgabe:**
+
+```
+================================================================================
+Modell-Evaluierung & Analytik
+================================================================================
+🤖 Lade Modell: ~/models/final/
+   ✅ Modell geladen auf GPU mit 8 Arten
+📸 240 Test-Bilder über 8 Arten gefunden
+
+🔄 Evaluiere Modell...
+Arten: 100%|████████████████████| 8/8 [00:03<00:00, 2.5it/s]
+
+================================================================================
+Konfusionsmatrix
+================================================================================
+Actual/Predicted  blaumeise  kohlmeise  rotkehlchen  ...
+------------------------------------------------------------
+blaumeise               28          2            0
+kohlmeise                1         29            0
+rotkehlchen              0          0           30
+...
+
+================================================================================
+Metriken pro Art
+================================================================================
+Species               Precision     Recall   F1-Score    Samples
+--------------------------------------------------------------------------------
+blaumeise                 96.6%     93.3%      94.9%         30
+kohlmeise                 93.5%     96.7%      95.1%         30
+rotkehlchen              100.0%    100.0%     100.0%         30
+...
+--------------------------------------------------------------------------------
+Macro Average                                   96.8%        240
+Weighted Average                                96.8%           
+
+================================================================================
+📊 Gesamtgenauigkeit: 96.25%
+Korrekt: 231/240
+Fehlklassifiziert: 9
+================================================================================
+```
+
+**Parameter:**
+- `--species-model`: Pfad zum trainierten Modell oder Hugging Face Model ID (erforderlich)
+- `--test-dir`: Test-Verzeichnis mit Arten-Unterordnern (erforderlich)
+- `--export-misclassified`: Exportiere fehlklassifizierte Bilder in CSV-Datei
+- `--export-json`: Exportiere alle Metriken (Konfusionsmatrix, Pro-Art-Metriken) nach JSON
+- `--min-confidence`: Minimale Confidence-Schwelle für Evaluierung (0.0-1.0, Standard: 0.0)
+
+**Exportierte Dateien:**
+
+**fehlklassifikationen.csv:**
+```csv
+image,actual,predicted,confidence
+/test/kohlmeise/img001.jpg,kohlmeise,blaumeise,0.6234
+/test/blaumeise/img045.jpg,blaumeise,kohlmeise,0.5891
+```
+
+**metriken.json:**
+```json
+{
+  "overall_accuracy": 0.9625,
+  "metrics": {
+    "blaumeise": {
+      "precision": 0.966,
+      "recall": 0.933,
+      "f1_score": 0.949,
+      "true_positives": 28,
+      "false_positives": 1,
+      "false_negatives": 2,
+      "total": 30
+    },
+    ...
+  },
+  "confusion_matrix": { ... }
+}
+```
+
+**Anwendungsfälle:**
+- 📊 **Modell-Vergleich**: Verschiedene Trainingsläufe vergleichen
+- 🔍 **Fehleranalyse**: Identifizieren welche Arten verwechselt werden
+- 📈 **Fortschritts-Tracking**: Verbesserung über Trainingsiterationen hinweg messen
+- ✅ **Qualitätssicherung**: Modell vor Deployment validieren
+- 🐛 **Training-Debug**: Dataset-Probleme oder Klassen-Ungleichgewichte finden
+
+---
+
 ## 🔄 Iterativer Training-Workflow
 
 Verbessere deine Modell-Genauigkeit durch iterative Verfeinerung mit Auto-Klassifizierung:

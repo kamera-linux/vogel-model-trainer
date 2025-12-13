@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.22] - 2025-12-13
+
+### Added
+- **📊 Model Evaluation & Analytics**: New `evaluate` command for comprehensive model performance analysis
+  - Confusion matrix visualization showing actual vs predicted classifications
+  - Per-species metrics: precision, recall, F1-score with detailed statistics
+  - Overall accuracy calculation with correct/misclassified counts
+  - Macro and weighted averages for multi-class evaluation
+  - Misclassification export to CSV for error analysis
+  - Complete metrics export to JSON for programmatic access
+  - Support for both local models and Hugging Face model IDs
+  - GPU acceleration with automatic CUDA detection
+  - Full i18n support (EN/DE/JP)
+  - Example: `vogel-trainer evaluate --species-model ~/models/final/ --test-dir ~/test-dataset/ --export-misclassified errors.csv --export-json metrics.json`
+
+- **🌐 Internationalization Enhancements**: Added 27 new translation keys
+  - evaluate_header, evaluate_loading_model, evaluate_model_loaded
+  - evaluate_found_images, evaluate_species_list, evaluate_species_mismatch
+  - evaluate_model_species, evaluate_test_species, evaluate_species_progress
+  - evaluate_processing, evaluate_confusion_matrix_header, evaluate_metrics_header
+  - evaluate_overall_accuracy, evaluate_correct, evaluate_misclassified
+  - evaluate_misclassifications_saved, evaluate_json_saved, evaluate_complete
+  - All languages: English, German (Deutsch), Japanese (日本語)
+
+### Documentation
+- **📚 Comprehensive Evaluation Guide**: Added Section 8 to all README files
+  - Basic and advanced usage examples with local and Hugging Face models
+  - Test directory structure requirements with species subfolders
+  - Complete output format documentation (confusion matrix, metrics tables)
+  - Parameter reference: --species-model, --test-dir, --export-misclassified, --export-json, --min-confidence
+  - CSV export format for misclassified images with confidence scores
+  - JSON export schema with metrics and confusion_matrix structure
+  - Use cases: model comparison, error analysis, progress tracking, quality assurance, training debugging
+  - Real-world example with 96.25% accuracy on 240-image test set
+
 ## [0.1.21] - 2025-11-20
 
 ### Changed

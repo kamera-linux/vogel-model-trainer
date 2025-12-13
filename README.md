@@ -907,6 +907,131 @@ sorted-birds/
 
 ---
 
+### 8. Evaluate Model Performance
+
+Comprehensive model evaluation with detailed metrics and error analysis:
+
+```bash
+# Basic evaluation on test set
+vogel-trainer evaluate \
+  --species-model ~/models/final/ \
+  --test-dir ~/test-dataset/
+
+# With Hugging Face model
+vogel-trainer evaluate \
+  --species-model kamera-linux/german-bird-classifier \
+  --test-dir ~/test-dataset/
+
+# Full analysis with exports
+vogel-trainer evaluate \
+  --species-model ~/models/final/ \
+  --test-dir ~/test-dataset/ \
+  --export-misclassified misclassified.csv \
+  --export-json metrics.json
+```
+
+**Test Directory Structure:**
+```
+test-dataset/
+├── blaumeise/          # Ground truth: Blue Tit
+│   ├── image001.jpg
+│   └── image002.jpg
+├── kohlmeise/          # Ground truth: Great Tit
+│   ├── image003.jpg
+│   └── image004.jpg
+└── rotkehlchen/        # Ground truth: Robin
+    ├── image005.jpg
+    └── image006.jpg
+```
+
+**Output:**
+
+```
+================================================================================
+Model Evaluation & Analytics
+================================================================================
+🤖 Loading model: ~/models/final/
+   ✅ Model loaded on GPU with 8 species
+📸 Found 240 test images across 8 species
+
+🔄 Evaluating model...
+Species: 100%|████████████████████| 8/8 [00:03<00:00, 2.5it/s]
+
+================================================================================
+Confusion Matrix
+================================================================================
+Actual/Predicted  blaumeise  kohlmeise  rotkehlchen  ...
+------------------------------------------------------------
+blaumeise               28          2            0
+kohlmeise                1         29            0
+rotkehlchen              0          0           30
+...
+
+================================================================================
+Per-Species Metrics
+================================================================================
+Species               Precision     Recall   F1-Score    Samples
+--------------------------------------------------------------------------------
+blaumeise                 96.6%     93.3%      94.9%         30
+kohlmeise                 93.5%     96.7%      95.1%         30
+rotkehlchen              100.0%    100.0%     100.0%         30
+...
+--------------------------------------------------------------------------------
+Macro Average                                   96.8%        240
+Weighted Average                                96.8%           
+
+================================================================================
+📊 Overall Accuracy: 96.25%
+Korrect: 231/240
+Misclassified: 9
+================================================================================
+```
+
+**Parameters:**
+- `--species-model`: Path to trained model or Hugging Face model ID (required)
+- `--test-dir`: Test directory with species subfolders (required)
+- `--export-misclassified`: Export misclassified images to CSV file
+- `--export-json`: Export all metrics (confusion matrix, per-species metrics) to JSON
+- `--min-confidence`: Minimum confidence threshold for evaluation (0.0-1.0, default: 0.0)
+
+**Exported Files:**
+
+**misclassified.csv:**
+```csv
+image,actual,predicted,confidence
+/test/kohlmeise/img001.jpg,kohlmeise,blaumeise,0.6234
+/test/blaumeise/img045.jpg,blaumeise,kohlmeise,0.5891
+```
+
+**metrics.json:**
+```json
+{
+  "overall_accuracy": 0.9625,
+  "metrics": {
+    "blaumeise": {
+      "precision": 0.966,
+      "recall": 0.933,
+      "f1_score": 0.949,
+      "true_positives": 28,
+      "false_positives": 1,
+      "false_negatives": 2,
+      "total": 30
+    },
+    ...
+  },
+  "confusion_matrix": { ... }
+}
+```
+
+**Use Cases:**
+- 📊 **Model Comparison**: Compare different training runs
+- 🔍 **Error Analysis**: Identify which species are confused
+- 📈 **Progress Tracking**: Monitor improvement over training iterations
+- ✅ **Quality Assurance**: Validate model before deployment
+- 🐛 **Debug Training**: Find dataset issues or class imbalances
+
+---
+
 ## 🔄 Iterative Training Workflow
 Improve your model accuracy through iterative refinement using auto-classification:
 
