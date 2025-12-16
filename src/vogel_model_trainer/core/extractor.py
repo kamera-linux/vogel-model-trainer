@@ -6,6 +6,7 @@ Extracts detected birds and saves them as individual images.
 
 import cv2
 import argparse
+import warnings
 from pathlib import Path
 from ultralytics import YOLO
 import sys
@@ -21,6 +22,10 @@ import os
 
 # Import i18n for translations
 from vogel_model_trainer.i18n import _
+
+# Suppress harmless Cholesky decomposition warnings from PyTorch optimizer
+warnings.filterwarnings('ignore', message='.*Cholesky.*')
+warnings.filterwarnings('ignore', message='.*positive-definiteness.*')
 
 # Default configuration (can be overridden via command line)
 DEFAULT_THRESHOLD = 0.5  # Higher threshold for better quality birds

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.23] - 2025-12-16
+
+### Fixed
+- **🔇 Warning Suppression**: Fixed Cholesky decomposition warnings appearing during `extract` command
+  - Added warning filters to `extractor.py` for PyTorch optimizer messages
+  - Warnings were harmless but cluttered output during video processing with `--species-model`
+  - Previously only suppressed in `evaluator.py`, now consistent across all commands
+  - Example affected command: `vogel-trainer extract --species-model kamera-linux/german-bird-classifier-v2`
+
 ## [0.1.22] - 2025-12-13
 
 ### Added

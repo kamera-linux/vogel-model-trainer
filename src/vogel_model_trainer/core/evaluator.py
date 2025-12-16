@@ -8,6 +8,7 @@ including confusion matrix, per-species metrics, and misclassification analysis.
 
 import csv
 import json
+import warnings
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 from collections import defaultdict
@@ -17,6 +18,9 @@ from transformers import AutoImageProcessor, AutoModelForImageClassification
 from tqdm import tqdm
 from vogel_model_trainer.i18n import _
 
+# Suppress harmless Cholesky decomposition warnings from PyTorch optimizer
+warnings.filterwarnings('ignore', message='.*Cholesky.*')
+warnings.filterwarnings('ignore', message='.*positive-definiteness.*')
 
 def load_model(model_path: str) -> Tuple[AutoModelForImageClassification, AutoImageProcessor, List[str]]:
     """
