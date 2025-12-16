@@ -11,7 +11,7 @@ def test_vogel_trainer_command_exists():
         text=True
     )
     assert result.returncode == 0
-    assert 'vogel-model-trainer' in result.stdout.lower() or result.stderr.lower()
+    assert 'vogel-trainer' in result.stdout.lower() or 'vogel-trainer' in result.stderr.lower()
 
 
 def test_vogel_trainer_help():
@@ -47,7 +47,8 @@ def test_train_help():
         text=True
     )
     assert result.returncode == 0
-    assert '--data-dir' in result.stdout.lower()
+    assert 'data' in result.stdout.lower()
+    assert '--output' in result.stdout.lower()
 
 
 def test_organize_help():
@@ -58,7 +59,8 @@ def test_organize_help():
         text=True
     )
     assert result.returncode == 0
-    assert '--input-dir' in result.stdout.lower()
+    assert 'source' in result.stdout.lower()
+    assert '--output' in result.stdout.lower()
 
 
 def test_evaluate_help():

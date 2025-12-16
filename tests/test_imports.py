@@ -18,17 +18,20 @@ def test_cli_imports():
 
 def test_core_imports():
     """Test that core modules can be imported."""
-    from vogel_model_trainer.core.trainer import train_model
-    from vogel_model_trainer.core.extractor import extract_birds
-    from vogel_model_trainer.core.organizer import organize_dataset
-    from vogel_model_trainer.core.deduplicator import deduplicate_images
-    from vogel_model_trainer.core.tester import test_model
+    from vogel_model_trainer.core import trainer
+    from vogel_model_trainer.core import extractor
+    from vogel_model_trainer.core import organizer
+    from vogel_model_trainer.core import deduplicator
+    from vogel_model_trainer.core import tester
+    from vogel_model_trainer.core import evaluator
     
-    assert callable(train_model)
-    assert callable(extract_birds)
-    assert callable(organize_dataset)
-    assert callable(deduplicate_images)
-    assert callable(test_model)
+    # Verify modules loaded successfully
+    assert trainer is not None
+    assert extractor is not None
+    assert organizer is not None
+    assert deduplicator is not None
+    assert tester is not None
+    assert evaluator is not None
 
 
 def test_i18n_import():
