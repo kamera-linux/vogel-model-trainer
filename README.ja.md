@@ -43,9 +43,15 @@
 
 **ドイツの庭鳥分類器** - すぐに使用可能！
 
-Hugging Faceで、8種類の一般的なドイツの庭鳥を100%の検証精度で分類できる事前学習済みモデルを提供しています：
+Hugging Faceで、8種類の一般的なドイツの庭鳥を分類できる事前学習済みモデルを提供しています：
 
-🔗 **[kamera-linux/german-bird-classifier](https://huggingface.co/kamera-linux/german-bird-classifier)**
+🔗 **[kamera-linux/german-bird-classifier-v2](https://huggingface.co/kamera-linux/german-bird-classifier-v2)** ⭐ **推奨**
+- ✅ **99.71% 精度** - 最先端のパフォーマンス
+- ✅ **完璧な分類** 8種中5種で実現
+- ✅ **EfficientNet-B2** - 高精度アーキテクチャ
+
+🔗 **[kamera-linux/german-bird-classifier](https://huggingface.co/kamera-linux/german-bird-classifier)** (v1、非推奨)
+- 87.69% 精度 - 互換性のためのレガシーモデル
 
 **対応種:**
 - Blaumeise（アオガラ）
@@ -61,7 +67,7 @@ Hugging Faceで、8種類の一般的なドイツの庭鳥を100%の検証精度
 ```bash
 vogel-trainer extract video.mp4 \
   --folder ~/training-data/ \
-  --species-model kamera-linux/german-bird-classifier \
+  --species-model kamera-linux/german-bird-classifier-v2 \
   --remove-background \
   --crop-padding 20 \
   --sample-rate 20 --skip-blurry --deduplicate \
@@ -346,7 +352,7 @@ vogel-trainer extract photo.jpg \
 # 自動ソート付きバッチ処理
 vogel-trainer extract "~/photos/*.jpg" \
   --folder ~/training-data/ \
-  --species-model kamera-linux/german-bird-classifier \
+  --species-model kamera-linux/german-bird-classifier-v2 \
   --recursive
 ```
 
@@ -552,7 +558,7 @@ vogel-trainer classify --species-model ~/models/final/ ~/camera-trap-images/ \
   --csv-report results.csv
 
 # Hugging Faceモデルを使用（自動ダウンロード）
-vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/camera-trap-images/ \
+vogel-trainer classify --species-model kamera-linux/german-bird-classifier-v2 ~/camera-trap-images/ \
   --csv-report results.csv
 
 # 種別に画像を自動振り分け
@@ -560,7 +566,7 @@ vogel-trainer classify --species-model ~/models/final/ ~/camera-trap-images/ \
   --sort-output ~/sorted-birds/
 
 # 信頼度閾値付き（高信頼度分類のみ振り分け）
-vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/camera-trap-images/ \
+vogel-trainer classify --species-model kamera-linux/german-bird-classifier-v2 ~/camera-trap-images/ \
   --sort-output ~/sorted-birds/ \
   --min-confidence 0.85
 
@@ -585,7 +591,7 @@ vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --move
 
 # 処理後にソースディレクトリを削除
-vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/images/ \
+vogel-trainer classify --species-model kamera-linux/german-bird-classifier-v2 ~/images/ \
   --sort-output ~/sorted/ \
   --delete-source
 
@@ -879,7 +885,7 @@ vogel-trainer evaluate \
 
 # Hugging Face モデルの使用
 vogel-trainer evaluate \
-  --species-model kamera-linux/german-bird-classifier \
+  --species-model kamera-linux/german-bird-classifier-v2 \
   --test-dir ~/test-dataset/
 
 # エクスポート付き完全分析

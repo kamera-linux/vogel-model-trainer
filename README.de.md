@@ -43,9 +43,15 @@ Ein spezialisiertes Toolkit zum Erstellen von hochgenauen Vogelarten-Klassifizie
 
 **Deutscher Gartenvögel-Klassifikator** - Sofort einsatzbereit!
 
-Wir stellen ein vortrainiertes Modell auf Hugging Face bereit, das 8 häufige deutsche Gartenvögel mit 100% Validierungsgenauigkeit klassifizieren kann:
+Wir stellen vortrainierte Modelle auf Hugging Face zur Klassifizierung von 8 häufigen deutschen Gartenvögeln bereit:
 
-🔗 **[kamera-linux/german-bird-classifier](https://huggingface.co/kamera-linux/german-bird-classifier)**
+🔗 **[kamera-linux/german-bird-classifier-v2](https://huggingface.co/kamera-linux/german-bird-classifier-v2)** ⭐ **Empfohlen**
+- ✅ **99,71% Genauigkeit** - State-of-the-art Performance
+- ✅ **Perfekte Klassifikation** für 5 von 8 Arten
+- ✅ **EfficientNet-B2** - Hochgenaue Architektur
+
+🔗 **[kamera-linux/german-bird-classifier](https://huggingface.co/kamera-linux/german-bird-classifier)** (v1, veraltet)
+- 87,69% Genauigkeit - Legacy-Modell für Kompatibilität
 
 **Unterstützte Arten:**
 - Blaumeise
@@ -61,7 +67,7 @@ Wir stellen ein vortrainiertes Modell auf Hugging Face bereit, das 8 häufige de
 ```bash
 vogel-trainer extract video.mp4 \
   --folder ~/training-data/ \
-  --species-model kamera-linux/german-bird-classifier \
+  --species-model kamera-linux/german-bird-classifier-v2 \
   --remove-background \
   --crop-padding 20 \
   --sample-rate 20 --skip-blurry --deduplicate \
@@ -348,7 +354,7 @@ vogel-trainer extract foto.jpg \
 # Batch-Verarbeitung mit Auto-Sortierung
 vogel-trainer extract "~/fotos/*.jpg" \
   --folder ~/training-data/ \
-  --species-model kamera-linux/german-bird-classifier \
+  --species-model kamera-linux/german-bird-classifier-v2 \
   --recursive
 ```
 
@@ -859,7 +865,7 @@ vogel-trainer classify --species-model ~/models/final/ ~/camera-trap-images/ \
   --csv-report results.csv
 
 # Hugging Face Modell verwenden (lädt automatisch herunter)
-vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/camera-trap-images/ \
+vogel-trainer classify --species-model kamera-linux/german-bird-classifier-v2 ~/camera-trap-images/ \
   --csv-report results.csv
 
 # Auto-Sortierung nach Arten
@@ -867,7 +873,7 @@ vogel-trainer classify --species-model ~/models/final/ ~/camera-trap-images/ \
   --sort-output ~/sorted-birds/
 
 # Mit Confidence-Schwelle (nur sichere Klassifikationen sortieren)
-vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/camera-trap-images/ \
+vogel-trainer classify --species-model kamera-linux/german-bird-classifier-v2 ~/camera-trap-images/ \
   --sort-output ~/sorted-birds/ \
   --min-confidence 0.85
 
@@ -892,7 +898,7 @@ vogel-trainer classify --species-model ~/models/final/ ~/images/ \
   --move
 
 # Quellverzeichnis nach Verarbeitung löschen
-vogel-trainer classify --species-model kamera-linux/german-bird-classifier ~/images/ \
+vogel-trainer classify --species-model kamera-linux/german-bird-classifier-v2 ~/images/ \
   --sort-output ~/sorted/ \
   --delete-source
 
@@ -971,7 +977,7 @@ vogel-trainer evaluate \
 
 # Mit Hugging Face Modell
 vogel-trainer evaluate \
-  --species-model kamera-linux/german-bird-classifier \
+  --species-model kamera-linux/german-bird-classifier-v2 \
   --test-dir ~/test-dataset/
 
 # Vollständige Analyse mit Exporten
