@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.24] - 2025-12-16
+
+### Added
+- **🧪 Automated Testing**: Added unit tests and CI/CD test pipeline
+  - Import tests for all core modules and CLI components
+  - CLI functionality tests for all commands (extract, train, organize, evaluate)
+  - Multi-version Python testing (3.9, 3.11, 3.12) in GitHub Actions
+  - Tests run automatically before PyPI publication to prevent broken releases
+  - Smoke tests verify package installation and basic functionality
+
+### Changed
+- **⚙️ CI/CD Pipeline**: Enhanced publish workflow with automated testing
+  - Tests must pass on all Python versions before PyPI upload
+  - Prevents publication of broken packages
+  - Validates imports, CLI commands, and help pages
+
 ## [0.1.23] - 2025-12-16
 
 ### Fixed
