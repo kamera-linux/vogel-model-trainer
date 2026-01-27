@@ -8,6 +8,7 @@ import cv2
 import argparse
 import warnings
 from pathlib import Path
+from typing import Dict, Optional, Tuple
 from ultralytics import YOLO
 import sys
 import uuid
@@ -33,7 +34,19 @@ DEFAULT_SAMPLE_RATE = 3  # Check more frames for better coverage
 DEFAULT_MODEL = "yolov8n.pt"
 TARGET_IMAGE_SIZE = 224  # Optimal size for EfficientNet-B0 training
 
-def calculate_motion_quality(image):
+# Image processing constants
+MIN_IMAGE_SIZE = 50  # Minimum image dimension for background removal
+ALPHA_TRANSPARENCY_THRESHOLD = 10  # Alpha value below which pixels are considered transparent
+BLACK_PIXEL_THRESHOLD = 20  # Grayscale value below which pixels are considered black
+PROGRESS_LOG_INTERVAL = 100  # Log progress every N frames/images
+
+# Background removal constants (rembg/alpha matting)
+ALPHA_MATTING_FOREGROUND_THRESHOLD = 240  # Threshold for foreground in alpha matting
+ALPHA_MATTING_BACKGROUND_THRESHOLD = 10  # Threshold for background in alpha matting
+ALPHA_MATTING_ERODE_SIZE = 10  # Erosion kernel size for alpha matting
+GRAY_BACKGROUND_DEFAULT = (128, 128, 128)  # Default gray background color (BGR)
+
+def calculate_motion_quality(image: np.ndarray) -> Dict[str, float]:
     """
     Calculate motion/blur quality metrics for an image.
     
@@ -67,7 +80,9 @@ def calculate_motion_quality(image):
         'overall': overall_score
     }
 
-def is_motion_acceptable(quality_metrics, min_sharpness=None, min_edge_quality=None):
+def is_motion_acceptable(quality_metrics: Dict[str, float], 
+                        min_sharpness: Optional[float] = None, 
+                        min_edge_quality: Optional[float] = None) -> Tuple[bool, str]:
     """
     Check if motion quality metrics meet minimum thresholds.
     
@@ -137,7 +152,7 @@ def remove_background(image, margin=10, iterations=10, bg_color=(128, 128, 128),
     height, width = image.shape[:2]
     
     # Minimum size check
-    if height < 50 or width < 50:
+    if height < MIN_IMAGE_SIZE or width < MIN_IMAGE_SIZE:
         return image
     
     try:
@@ -152,9 +167,9 @@ def remove_background(image, margin=10, iterations=10, bg_color=(128, 128, 128),
         output = rembg_remove(
             pil_image,
             alpha_matting=True,
-            alpha_matting_foreground_threshold=240,
-            alpha_matting_background_threshold=10,
-            alpha_matting_erode_size=10,
+            alpha_matting_foreground_threshold=ALPHA_MATTING_FOREGROUND_THRESHOLD,
+            alpha_matting_background_threshold=ALPHA_MATTING_BACKGROUND_THRESHOLD,
+            alpha_matting_erode_size=ALPHA_MATTING_ERODE_SIZE,
             post_process_mask=True
         )
         
@@ -173,7 +188,7 @@ def remove_background(image, margin=10, iterations=10, bg_color=(128, 128, 128),
             # Dilate the mask to include more pixels around the bird
             kernel_size = expand_mask * 2 + 1  # Convert to odd kernel size
             kernel = np.ones((kernel_size, kernel_size), np.uint8)
-            alpha_binary = (alpha > 10).astype(np.uint8) * 255  # Threshold to binary
+            alpha_binary = (alpha > ALPHA_TRANSPARENCY_THRESHOLD).astype(np.uint8) * 255  # Threshold to binary
             alpha_expanded = cv2.dilate(alpha_binary, kernel, iterations=1)
             alpha_float = alpha_expanded.astype(np.float32) / 255.0
         
@@ -198,10 +213,10 @@ def remove_background(image, margin=10, iterations=10, bg_color=(128, 128, 128),
                 # Convert RGB to grayscale
                 gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
                 # Detect very dark pixels (black box/padding areas)
-                black_mask = gray < 20  # Threshold for "black" pixels
+                black_mask = gray < BLACK_PIXEL_THRESHOLD  # Threshold for "black" pixels
                 # Only set alpha to 0 for black areas that are ALREADY mostly transparent (background)
-                # This way, black feathers with alpha > 0.1 are preserved
-                background_mask = alpha_final < 0.1
+                # This way, black feathers with alpha > ALPHA_TRANSPARENCY_THRESHOLD are preserved
+                background_mask = alpha_final < (ALPHA_TRANSPARENCY_THRESHOLD / 255.0)
                 black_background_mask = black_mask & background_mask
                 alpha_final[black_background_mask] = 0.0
             
@@ -353,7 +368,7 @@ def convert_bird_images(source_dir, target_dir, remove_bg=True, bg_color=(128, 1
         target_file.parent.mkdir(parents=True, exist_ok=True)
         
         # Progress
-        if idx % 100 == 0 or idx == 1:
+        if idx % PROGRESS_LOG_INTERVAL == 0 or idx == 1:
             print(f"Processing {idx}/{len(image_files)}: {rel_path}")
         
         # Load image
@@ -902,7 +917,7 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
             frame_num += 1
             
             # Progress
-            if frame_num % 100 == 0:
+            if frame_num % PROGRESS_LOG_INTERVAL == 0:
                 progress = (frame_num / total_frames) * 100
                 print(_('progress', percent=progress, current=frame_num, total=total_frames))
     

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.25] - 2026-01-27
+
+### Changed
+- **🔧 Code Quality**: Refactored extractor.py magic numbers to named constants
+  - Extracted 8 new configuration constants (MIN_IMAGE_SIZE, ALPHA_TRANSPARENCY_THRESHOLD, etc.)
+  - Improved maintainability by centralizing hardcoded values
+  - Added type hints to quality filter functions (calculate_motion_quality, is_motion_acceptable)
+  - Added typing imports (Dict, Optional, Tuple) for better IDE support
+  - No behavioral changes - purely internal code improvements
+
 ## [0.1.24] - 2025-12-16
 
 ### Added
