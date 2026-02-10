@@ -1,0 +1,67 @@
+---
+name: Question / Support
+description: Ask a question or seek help with Vogel Model Trainer
+title: "[QUESTION] "
+labels: ["question", "documentation"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question about Vogel Model Trainer? We're happy to help! Please
+        check the documentation first.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: "Example: How can I extract bird images from my video files?"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: topic
+    attributes:
+      label: Topic
+      description: What is your question about?
+      options:
+        - Installation
+        - Getting Started
+        - Image Extraction
+        - Model Training
+        - Dataset Management
+        - Troubleshooting
+        - Performance
+        - Hardware Requirements
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What Have You Tried?
+      description: What solutions or documentation have you already checked?
+      placeholder: |
+        - Checked README.md
+        - Ran `vogel-model-trainer --help`
+        - Checked existing issues
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any relevant system information or error messages
+
+  - type: markdown
+    attributes:
+      value: |
+        ## Resources
+        - 📖 [Documentation](https://github.com/roimme65/vogel-model-trainer#readme)
+        - 🇩🇪 [Deutsche Dokumentation](https://github.com/roimme65/vogel-model-trainer/blob/main/README.de.md)
+        - 🇯🇵 [日本語ドキュメンテーション](https://github.com/roimme65/vogel-model-trainer/blob/main/README.ja.md)
+        - 💬 [GitHub Discussions](https://github.com/roimme65/vogel-model-trainer/discussions)
+        - 🐛 [Known Issues](https://github.com/roimme65/vogel-model-trainer/issues)

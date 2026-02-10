@@ -1,0 +1,82 @@
+---
+name: Feature Request
+description: Suggest an idea for Vogel Model Trainer
+title: "[FEATURE] "
+labels: ["enhancement", "feature-request"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please provide details below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature Description
+      description: Clear description of the feature you'd like to see
+      placeholder: >
+        Example: Add support for ResNet-50 as an alternative to EfficientNet
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use Case
+      description: Explain why this feature would be useful
+      placeholder: >
+        Example: ResNet models might provide better accuracy for certain
+        bird species with specific plumage patterns...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Solution (Optional)
+      description: If you have an idea on how to implement this, share it
+      placeholder: "Example: Add a --model-type parameter to the train command..."
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      description: What aspect of Vogel Model Trainer does this relate to?
+      options:
+        - Model Training
+        - Image Extraction
+        - Dataset Management
+        - CLI Interface
+        - Quality Checking
+        - Data Augmentation
+        - Reporting / Analysis
+        - Performance
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: alternatives
+    attributes:
+      label: Have you considered...
+      options:
+        - label: Are there alternative solutions you've tried?
+          required: false
+        - label: Is this related to an existing issue?
+          required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information or examples
+
+  - type: markdown
+    attributes:
+      value: |
+        ## Notes
+        - Features should align with Vogel Model Trainer's core purpose of bird species classification
+        - We consider user feedback seriously
+        - Security and performance are taken seriously

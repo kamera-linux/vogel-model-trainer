@@ -1,0 +1,128 @@
+---
+name: Bug Report
+description: Report a bug or issue with Vogel Model Trainer
+title: "[BUG] "
+labels: ["bug", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping us improve! Please complete the form below to
+        report this bug.
+
+  - type: dropdown
+    id: version
+    attributes:
+      label: Version
+      description: Which version of Vogel Model Trainer are you using?
+      options:
+        - 0.1.25
+        - 0.1.24
+        - 0.1.23
+        - 0.1.22
+        - Other (please specify)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: "Example: The classifier training crashes after 100 epochs"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Extract images from video using: vogel-model-trainer extract ...
+        2. Train model with: vogel-model-trainer train ...
+        3. Wait for training to complete
+        4. Observe the error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen?
+      placeholder: "Example: The entry should be saved and appear in the table"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happens?
+      placeholder: "Example: An error message appears or the application closes"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: system
+    attributes:
+      label: Operating System
+      description: What is your operating system?
+      options:
+        - Linux (Ubuntu/Debian)
+        - Linux (Gentoo)
+        - Linux (Fedora/RHEL)
+        - Linux (other)
+        - Windows
+        - macOS
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: python
+    attributes:
+      label: Python Version
+      description: Output of `python3 --version`
+      render: shell
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Installed Packages
+      description: Output of `pip list | grep -E 'torch|opencv|pytorch|efficientnet|ultralytics'`
+      render: shell
+
+  - type: textarea
+    id: gpu_info
+    attributes:
+      label: GPU/Hardware Information
+      description: Output of `nvidia-smi` or relevant hardware details
+      render: shell
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Messages or Logs
+      description: Please paste any error messages or relevant output
+      render: bash
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information that might be helpful
+
+  - type: checkboxes
+    id: verification
+    attributes:
+      label: Verification
+      options:
+        - label: I've verified the issue with the latest version
+          required: false
+        - label: I've checked existing issues
+          required: false
+        - label: The issue is reproducible
+          required: true
