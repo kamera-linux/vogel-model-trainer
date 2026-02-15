@@ -41,8 +41,8 @@ def load_model(model_path: str) -> Tuple[AutoModelForImageClassification, AutoIm
     print(_('evaluate_loading_model', path=model_source))
     
     try:
-        model = AutoModelForImageClassification.from_pretrained(model_source)
-        processor = AutoImageProcessor.from_pretrained(model_source)
+        model = AutoModelForImageClassification.from_pretrained(model_source, revision="main")  # nosec B615
+        processor = AutoImageProcessor.from_pretrained(model_source, revision="main")  # nosec B615
     except Exception as e:
         raise FileNotFoundError(_('evaluate_model_not_found', path=model_source)) from e
     

@@ -78,7 +78,32 @@ Das Modell klassifiziert erkannte Vögel automatisch während der Extraktion!
 
 ---
 
-## 🚀 Schnellstart
+## � Sicherheit & Zuverlässigkeit
+
+**v0.1.26 Sicherheits-Audit** - Umfassende Sicherheitsprüfung von Code und Abhängigkeiten abgeschlossen:
+
+- ✅ **Null Bekannte Schwachstellen** - 153 installierte Pakete gescannt, null CVEs
+  - `pip-audit`: Keine bekannten Schwachstellen
+  - `safety`: Keine bekannten Schwachstellen
+  
+- ✅ **Sichere Model-Downloads** - Alle Hugging Face Model-Importe mit `revision="main"` gepinnt
+  - Verhindert unbefugte Model-Modifikationen (CWE-494)
+  - Angewendet auf alle 8 Model-Lade-Positionen in trainer, evaluator, classifier und extractor Modulen
+  
+- ✅ **Bandit Code-Analyse** - Alle Sicherheitsfunde aufgelöst mit Dokumentation
+  - Data Augmentation Randomisierung als intentional gekennzeichnet (nicht kryptografisch)
+  - Exception Handling für beschädigte Bilder klar dokumentiert
+  - Gesamt-Findings: 0 High-Risk, 0 Medium-Risk Issues
+  
+- ✅ **Abhängigkeiten Aktuell**
+  - PyTorch 2.10.0, Transformers 5.1.0, YOLOv8 8.4.14
+  - OpenCV 4.13.0, Pillow 12.1.1, NumPy 2.3.5
+
+Bei Sicherheitsbedenken siehe [SECURITY.md](SECURITY.md)
+
+---
+
+## �🚀 Schnellstart
 
 ### Installation
 

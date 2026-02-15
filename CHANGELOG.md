@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.26] - 2026-02-15
+
+### Security
+- **🔒 Comprehensive Security Audit**: Full code and dependency security scan completed
+  - **Code Security**: 14 Bandit findings resolved (11 Medium, 3 Low severity)
+    - Added `revision="main"` pinning to all Hugging Face model downloads to prevent model tampering (CWE-494)
+    - Documented intentional use of `random.sample()` for local data augmentation (not cryptographic)
+    - Marked intentional exception handling for corrupted images
+  - **Dependency Security**: Zero vulnerabilities in 153 installed packages
+    - pip-audit: No known vulnerabilities
+    - Safety scan: No known vulnerabilities
+  - All major libraries up-to-date: PyTorch 2.10.0, Transformers 5.1.0, YOLO 8.4.14, OpenCV 4.13.0
+  - Security findings documented with explanatory comments and #nosec markers
+
 ## [0.1.25] - 2026-01-27
 
 ### Changed

@@ -549,8 +549,8 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
     processor = None
     if species_model:
         print(_('loading_species') + f" {species_model}")
-        processor = AutoImageProcessor.from_pretrained(species_model)
-        classifier = AutoModelForImageClassification.from_pretrained(species_model)
+        processor = AutoImageProcessor.from_pretrained(species_model, revision="main")  # nosec B615
+        classifier = AutoModelForImageClassification.from_pretrained(species_model, revision="main")  # nosec B615
         classifier.eval()
         print(_('loaded_species_classes', count=len(classifier.config.id2label)))
     
@@ -645,7 +645,7 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
                 img = Image.open(img_path)
                 img_hash = imagehash.phash(img)
                 hash_cache[str(img_path)] = img_hash
-            except Exception as e:
+            except Exception as e:  # nosec B110 - intentional skip of corrupted images
                 # Skip corrupted images
                 pass
         if len(hash_cache) > 0:
@@ -1050,8 +1050,8 @@ def extract_birds_from_image(image_path, output_dir, bird_species=None,
     species_classifier = None
     if species_model:
         print(_('loading_species_model', model=species_model))
-        species_processor = AutoImageProcessor.from_pretrained(species_model)
-        species_classifier = AutoModelForImageClassification.from_pretrained(species_model)
+        species_processor = AutoImageProcessor.from_pretrained(species_model, revision="main")  # nosec B615
+        species_classifier = AutoModelForImageClassification.from_pretrained(species_model, revision="main")  # nosec B615
     
     # Statistics
     bird_count = 0

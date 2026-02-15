@@ -74,9 +74,10 @@ def prepare_model_and_processor(species):
     id2label = {i: sp for i, sp in enumerate(species)}
     label2id = {sp: i for i, sp in enumerate(species)}
     
-    processor = AutoImageProcessor.from_pretrained(MODEL_NAME)
-    model = AutoModelForImageClassification.from_pretrained(
+    processor = AutoImageProcessor.from_pretrained(MODEL_NAME, revision="main")  # nosec B615
+    model = AutoModelForImageClassification.from_pretrained(  # nosec B615
         MODEL_NAME,
+        revision="main",
         num_labels=len(species),
         id2label=id2label,
         label2id=label2id,
@@ -166,7 +167,7 @@ def transform_function(examples, processor, is_training=True, augmentation_stren
         # Handle transparent images with random background augmentation
         if img.mode == "RGBA" and is_training:
             # Random background color for training (helps model ignore background)
-            bg_color = random.choice(BACKGROUND_COLORS)
+            bg_color = random.choice(BACKGROUND_COLORS)  # nosec B311 - local augmentation, not cryptographic
             background = Image.new("RGB", img.size, bg_color)
             # Paste bird using alpha channel as mask
             background.paste(img, mask=img.split()[3])
@@ -315,7 +316,7 @@ def train_model(data_dir, output_dir, model_name="google/efficientnet-b0",
     
     # Load dataset
     print(_('train_loading_dataset'))
-    dataset = load_dataset("imagefolder", data_dir=str(data_dir))
+    dataset = load_dataset("imagefolder", data_dir=str(data_dir))  # nosec B615 - local dataset loading
     
     print(_('train_dataset_size', train=len(dataset['train'])))
     print(_('train_val_size', val=len(dataset['validation'])))

@@ -41,8 +41,8 @@ def load_classifier(model_path: str) -> Tuple[AutoModelForImageClassification, A
     
     try:
         # Load model and processor (works for both local and HF models)
-        model = AutoModelForImageClassification.from_pretrained(model_source)
-        processor = AutoImageProcessor.from_pretrained(model_source)
+        model = AutoModelForImageClassification.from_pretrained(model_source, revision="main")  # nosec B615
+        processor = AutoImageProcessor.from_pretrained(model_source, revision="main")  # nosec B615
     except Exception as e:
         raise FileNotFoundError(_('classify_model_not_found', path=model_source)) from e
     

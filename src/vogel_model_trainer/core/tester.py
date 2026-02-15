@@ -277,7 +277,7 @@ def test_model(model_path: str, data_dir: str = None, image_path: str = None):
             
             # Test random sample
             sample_size = min(5, len(images))
-            sample_images = random.sample(images, sample_size)
+            sample_images = random.sample(images, sample_size)  # nosec B311 - local testing, not cryptographic
             
             sp_correct = 0
             for img_path in sample_images:
