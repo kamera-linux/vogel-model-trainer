@@ -78,7 +78,7 @@ Das Modell klassifiziert erkannte Vögel automatisch während der Extraktion!
 
 ---
 
-## � Sicherheit & Zuverlässigkeit
+## 🔒 Sicherheit & Zuverlässigkeit
 
 **v0.1.26 Sicherheits-Audit** - Umfassende Sicherheitsprüfung von Code und Abhängigkeiten abgeschlossen:
 
@@ -103,7 +103,7 @@ Bei Sicherheitsbedenken siehe [SECURITY.md](SECURITY.md)
 
 ---
 
-## �🚀 Schnellstart
+## 🚀 Schnellstart
 
 ### Installation
 

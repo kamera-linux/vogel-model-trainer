@@ -78,7 +78,7 @@ The model automatically classifies detected birds during extraction!
 
 ---
 
-## � Security & Reliability
+## 🔒 Security & Reliability
 
 **v0.1.26 Security Audit** - Comprehensive code and dependency security scan completed:
 
@@ -103,7 +103,7 @@ For security concerns, see [SECURITY.md](SECURITY.md)
 
 ---
 
-## �🚀 Quick Start
+## 🚀 Quick Start
 
 ### Installation
 
