@@ -46,6 +46,71 @@ ALPHA_MATTING_BACKGROUND_THRESHOLD = 10  # Threshold for background in alpha mat
 ALPHA_MATTING_ERODE_SIZE = 10  # Erosion kernel size for alpha matting
 GRAY_BACKGROUND_DEFAULT = (128, 128, 128)  # Default gray background color (BGR)
 
+
+def _resolve_detection_model_path(detection_model: str) -> str:
+    """Resolve detection model path from common locations while preserving model IDs."""
+    model_input = str(detection_model).strip()
+    if not model_input:
+        return DEFAULT_MODEL
+
+    expanded = Path(model_input).expanduser()
+
+    # Existing explicit file path (absolute or relative)
+    if expanded.is_file():
+        return str(expanded)
+
+    # Keep absolute path unchanged so downstream error remains clear if file is missing
+    if expanded.is_absolute():
+        return str(expanded)
+
+    # Try common project/package-relative locations for local model files
+    candidate_paths = [
+        Path.cwd() / expanded,
+        Path(__file__).resolve().parents[3] / expanded,
+        Path(__file__).resolve().parent / expanded,
+    ]
+    for candidate in candidate_paths:
+        if candidate.is_file():
+            return str(candidate)
+
+    # Not a local file in known locations -> treat as model ID/name
+    return model_input
+
+
+def _load_yolo_model(detection_model: str) -> Tuple[YOLO, str]:
+    """Load YOLO model with fallback aliases for yolov26n default naming."""
+    resolved = _resolve_detection_model_path(detection_model)
+
+    attempts = [resolved]
+    if Path(str(resolved)).name.lower() == "yolov26n.pt":
+        # Some environments resolve this family as yolo26n.pt
+        attempts.append("yolo26n.pt")
+
+    last_error = None
+    seen = set()
+
+    for model_ref in attempts:
+        if model_ref in seen:
+            continue
+        seen.add(model_ref)
+
+        try:
+            print(_('loading_yolo') + f" {model_ref}")
+            return YOLO(model_ref), model_ref
+        except FileNotFoundError as exc:
+            last_error = exc
+            continue
+        except Exception as exc:
+            # If this is the final attempt, surface the original error
+            last_error = exc
+            continue
+
+    raise FileNotFoundError(
+        f"YOLO model could not be loaded: {detection_model}. "
+        f"Tried: {', '.join(attempts)}. "
+        "Use --detection-model with an absolute model path if needed."
+    ) from last_error
+
 def calculate_motion_quality(image: np.ndarray) -> Dict[str, float]:
     """
     Calculate motion/blur quality metrics for an image.
@@ -555,8 +620,9 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
         print(_('loaded_species_classes', count=len(classifier.config.id2label)))
     
     # Load YOLO model
-    print(_('loading_yolo') + f" {detection_model}")
-    model = YOLO(detection_model)
+    model, loaded_model_ref = _load_yolo_model(detection_model)
+    if loaded_model_ref != detection_model:
+        print(f"ℹ️ Using YOLO model reference: {loaded_model_ref}")
     
     # Open video
     cap = cv2.VideoCapture(str(video_path))
@@ -1032,8 +1098,9 @@ def extract_birds_from_image(image_path, output_dir, bird_species=None,
         return
     
     # Initialize YOLO model
-    print(_('loading_model', model=detection_model))
-    model = YOLO(detection_model)
+    model, loaded_model_ref = _load_yolo_model(detection_model)
+    if loaded_model_ref != detection_model:
+        print(f"ℹ️ Using YOLO model reference: {loaded_model_ref}")
     
     # Generate session ID
     session_id = datetime.now().strftime("%Y%m%d_%H%M%S")

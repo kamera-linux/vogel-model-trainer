@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.28] - 2026-02-22
+
+### Fixed
+- **🛠️ Robust YOLO Default Model Loading**: Fixed default `yolov26n.pt` loading failures in environments where only alias names resolve
+  - Added resilient detection-model path resolution across common local/project locations
+  - Added fallback alias loading for `yolov26n.pt` → `yolo26n.pt`
+  - Applied fix to both video extraction and image extraction workflows
+  - Improved runtime guidance when model loading fails (clearer tried-model references)
+
 ## [0.1.27] - 2026-02-22
 
 ### Changed
