@@ -581,8 +581,8 @@ For more information, visit:
     )
     extract_parser.add_argument(
         "--detection-model",
-        default="yolov8n.pt",
-        help="YOLO detection model path (default: yolov8n.pt)"
+        default="yolov26n.pt",
+        help="YOLO detection model path (default: yolov26n.pt)"
     )
     extract_parser.add_argument(
         "--threshold",

@@ -81,7 +81,7 @@ vogel-trainer extract VIDEO --folder FOLDER [OPTIONS]
 - `--bird` - Manual bird species name (creates subdirectory)
 - `--species-model` - Path to species classifier for automatic sorting
 - `--no-resize` - Keep original image size instead of 224x224px
-- `--detection-model` - YOLO model path (default: `yolov8n.pt`)
+- `--detection-model` - YOLO model path (default: `yolov26n.pt`)
 - `--threshold` - Detection confidence threshold (default: `0.5`)
 - `--sample-rate` - Analyze every Nth frame (default: `3`)
 - `--recursive, -r` - Search directories recursively

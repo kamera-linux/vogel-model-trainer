@@ -112,7 +112,7 @@ These dependencies may have their own security considerations.
 
 ## 📊 Security Audit Reports
 
-### Latest Audit: v0.1.26 (2026-02-15)
+### Latest Audit: v0.1.27 (2026-02-22)
 
 **Tools Used:**
 - `bandit` - Python security issue scanner
@@ -130,7 +130,7 @@ These dependencies may have their own security considerations.
   - Medium: 0 ✅
   - Low: 0 ✅
 
-**Resoled Findings (v0.1.26):**
+**Resolved Findings (v0.1.27):**
 1. **Hugging Face Model Download Security (CWE-494)**
    - Added `revision="main"` parameter to all 8 `from_pretrained()` calls
    - Prevents unauthorized model modifications

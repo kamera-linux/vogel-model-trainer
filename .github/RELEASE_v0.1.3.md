@@ -175,9 +175,9 @@ vogel-trainer extract batch3/*.mp4 \
 from vogel_model_trainer.i18n import _
 
 # Automatic language detection
-print(_('loading_yolo') + f" yolov8n.pt")
-# de: "🤖 Lade YOLO-Modell: yolov8n.pt"
-# ja: "🤖 YOLOモデルを読み込んでいます：yolov8n.pt"
+print(_('loading_yolo') + f" yolov26n.pt")
+# de: "🤖 Lade YOLO-Modell: yolov26n.pt"
+# ja: "🤖 YOLOモデルを読み込んでいます：yolov26n.pt"
 
 # With parameters
 print(_('bird_extracted', count=120, species='grünling', 

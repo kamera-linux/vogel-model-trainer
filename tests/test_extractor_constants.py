@@ -52,7 +52,7 @@ def test_existing_constants():
     assert extractor.DEFAULT_SAMPLE_RATE == 3
     
     assert hasattr(extractor, 'DEFAULT_MODEL')
-    assert extractor.DEFAULT_MODEL == "yolov8n.pt"
+    assert extractor.DEFAULT_MODEL == "yolov26n.pt"
     
     assert hasattr(extractor, 'TARGET_IMAGE_SIZE')
     assert extractor.TARGET_IMAGE_SIZE == 224

@@ -80,7 +80,7 @@ The model automatically classifies detected birds during extraction!
 
 ## 🔒 Security & Reliability
 
-**v0.1.26 Security Audit** - Comprehensive code and dependency security scan completed:
+**v0.1.27 Security Audit** - Comprehensive code and dependency security scan completed:
 
 - ✅ **Zero Known Vulnerabilities** - 153 installed packages scanned with zero CVEs
   - `pip-audit`: No known vulnerabilities
@@ -183,7 +183,7 @@ extractor.extract_birds_from_video(
     video_path="video.mp4",
     output_dir="output/",
     bird_species="great-tit",
-    detection_model="yolov8n.pt",
+    detection_model="yolov26n.pt",
     species_model=None,
     threshold=0.5,
     sample_rate=3,
@@ -195,7 +195,7 @@ extractor.extract_birds_from_image(
     image_path="photo.jpg",
     output_dir="output/",
     bird_species="great-tit",
-    detection_model="yolov8n.pt",
+    detection_model="yolov26n.pt",
     remove_bg=True,
     bg_transparent=True
 )
@@ -288,7 +288,7 @@ vogel-trainer extract ~/Videos/ \
 - `--species-threshold`: Minimum confidence for species classification (e.g., 0.85 for 85%)
 - `--threshold`: YOLO confidence threshold (default: 0.5)
 - `--sample-rate`: Process every Nth frame (default: 3)
-- `--detection-model`: YOLO model path (default: yolov8n.pt)
+- `--detection-model`: YOLO model path (default: yolov26n.pt)
 - `--image-size`: Target image size in pixels (default: 224, use 0 for original size)
 - `--max-detections`: Maximum detections per frame (default: 10)
 - `--min-box-size`: Minimum bounding box size in pixels (default: 50)

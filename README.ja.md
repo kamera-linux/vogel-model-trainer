@@ -80,7 +80,7 @@ vogel-trainer extract video.mp4 \
 
 ## 🔒 セキュリティと信頼性
 
-**v0.1.26 セキュリティ監査** - コードと依存関係の包括的なセキュリティスキャンが完了:
+**v0.1.27 セキュリティ監査** - コードと依存関係の包括的なセキュリティスキャンが完了:
 
 - ✅ **既知の脆弱性なし** - 153個の インストール済みパッケージをスキャン、CVEなし
   - `pip-audit`: 既知の脆弱性なし
@@ -183,7 +183,7 @@ extractor.extract_birds_from_video(
     video_path="video.mp4",
     output_dir="output/",
     bird_species="great-tit",
-    detection_model="yolov8n.pt",
+    detection_model="yolov26n.pt",
     species_model=None,
     threshold=0.5,
     sample_rate=3,
@@ -195,7 +195,7 @@ extractor.extract_birds_from_image(
     image_path="photo.jpg",
     output_dir="output/",
     bird_species="great-tit",
-    detection_model="yolov8n.pt",
+    detection_model="yolov26n.pt",
     remove_bg=True,
     bg_transparent=True
 )
@@ -288,7 +288,7 @@ vogel-trainer extract ~/Videos/ \
 - `--species-threshold`: 種分類の最小信頼度（例: 0.85は85%）
 - `--threshold`: YOLO信頼度しきい値（デフォルト: 0.5）
 - `--sample-rate`: N番目のフレームごとに処理（デフォルト: 3）
-- `--detection-model`: YOLOモデルパス（デフォルト: yolov8n.pt）
+- `--detection-model`: YOLOモデルパス（デフォルト: yolov26n.pt）
 - `--image-size`: ターゲット画像サイズ（ピクセル単位、デフォルト: 224、0で元のサイズ）
 - `--max-detections`: フレームごとの最大検出数（デフォルト: 10）
 - `--min-box-size`: 最小バウンディングボックスサイズ（ピクセル単位、デフォルト: 50）
@@ -1025,7 +1025,7 @@ image,actual,predicted,confidence
 
 ## 🏗️ 技術スタック
 
-- **検出**: YOLOv8n (Ultralytics)
+- **検出**: YOLOv26n (Ultralytics)
 - **分類**: EfficientNet-B0 (Hugging Face Transformers)
 - **トレーニング**: PyTorch + Accelerate
 - **データ処理**: OpenCV, PIL, NumPy

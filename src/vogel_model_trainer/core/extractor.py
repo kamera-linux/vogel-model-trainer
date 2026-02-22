@@ -31,7 +31,7 @@ warnings.filterwarnings('ignore', message='.*positive-definiteness.*')
 # Default configuration (can be overridden via command line)
 DEFAULT_THRESHOLD = 0.5  # Higher threshold for better quality birds
 DEFAULT_SAMPLE_RATE = 3  # Check more frames for better coverage
-DEFAULT_MODEL = "yolov8n.pt"
+DEFAULT_MODEL = "yolov26n.pt"
 TARGET_IMAGE_SIZE = 224  # Optimal size for EfficientNet-B0 training
 
 # Image processing constants
@@ -519,7 +519,7 @@ def extract_birds_from_video(video_path, output_dir, bird_species=None,
         video_path: Path to video file
         output_dir: Base directory to save extracted bird images
         bird_species: Manually specified bird species (if known, e.g., 'rotkehlchen')
-        detection_model: YOLO model path for bird detection (default: yolov8n.pt)
+        detection_model: YOLO model path for bird detection (default: yolov26n.pt)
         species_model: Custom species classifier model path for automatic sorting
         threshold: Detection confidence threshold (default: 0.5 for high quality)
         sample_rate: Analyze every Nth frame (default: 3)

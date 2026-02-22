@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.27] - 2026-02-22
+
+### Changed
+- **🧭 Default Detection Model Updated**: Switched default detection model from `yolov8n.pt` to `yolov26n.pt`
+  - Updated extractor defaults and CLI help output
+  - Updated examples, parameter docs, and release notes in EN/DE/JA documentation
+  - Renamed bundled model file in repository root to `yolov26n.pt`
+
+- **📦 Dependency Baseline Updated**: Raised minimum Ultralytics version to `8.4.14`
+  - `pyproject.toml` now requires `ultralytics>=8.4.14`
+  - Aligns dependency baseline with documented tested security/tooling stack
+
 ## [0.1.26] - 2026-02-15
 
 ### Security

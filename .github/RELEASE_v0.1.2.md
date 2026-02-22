@@ -24,7 +24,7 @@ extract_birds_from_video(
     video_path="video.mp4",
     output_dir="output/",
     bird_species="Blaumeise",
-    detection_model="yolov8n.pt",
+    detection_model="yolov26n.pt",
     species_model=None,
     threshold=0.5,
     sample_rate=3,

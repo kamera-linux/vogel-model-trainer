@@ -80,7 +80,7 @@ Das Modell klassifiziert erkannte Vögel automatisch während der Extraktion!
 
 ## 🔒 Sicherheit & Zuverlässigkeit
 
-**v0.1.26 Sicherheits-Audit** - Umfassende Sicherheitsprüfung von Code und Abhängigkeiten abgeschlossen:
+**v0.1.27 Sicherheits-Audit** - Umfassende Sicherheitsprüfung von Code und Abhängigkeiten abgeschlossen:
 
 - ✅ **Null Bekannte Schwachstellen** - 153 installierte Pakete gescannt, null CVEs
   - `pip-audit`: Keine bekannten Schwachstellen
@@ -183,7 +183,7 @@ extractor.extract_birds_from_video(
     video_path="video.mp4",
     output_dir="output/",
     bird_species="kohlmeise",
-    detection_model="yolov8n.pt",
+    detection_model="yolov26n.pt",
     species_model=None,
     threshold=0.5,
     sample_rate=3,
@@ -195,7 +195,7 @@ extractor.extract_birds_from_image(
     image_path="foto.jpg",
     output_dir="output/",
     bird_species="kohlmeise",
-    detection_model="yolov8n.pt",
+    detection_model="yolov26n.pt",
     remove_bg=True,
     bg_transparent=True
 )
@@ -288,7 +288,7 @@ vogel-trainer extract ~/Videos/ \
 - `--species-threshold`: Min. Confidence für Arten-Klassifizierung (z.B. 0.85 für 85%)
 - `--threshold`: YOLO Confidence-Schwellwert (Standard: 0.5)
 - `--sample-rate`: Verarbeite jeden N-ten Frame (Standard: 3)
-- `--detection-model`: YOLO Modell-Pfad (Standard: yolov8n.pt)
+- `--detection-model`: YOLO Modell-Pfad (Standard: yolov26n.pt)
 - `--image-size`: Ziel-Bildgröße in Pixeln (Standard: 224, 0 für Originalgröße)
 - `--max-detections`: Maximale Erkennungen pro Frame (Standard: 10)
 - `--min-box-size`: Minimale Bounding-Box-Größe in Pixeln (Standard: 50)

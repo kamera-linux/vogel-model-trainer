@@ -28,7 +28,7 @@ These fixes resolve critical issues that prevented the extraction command from w
 2. Console output now displays correct separator lines instead of literal format strings
 
 ## 🔍 Testing
-- Tested extraction with online YOLO model (yolov8n.pt)
+- Tested extraction with online YOLO model (yolov26n.pt)
 - Verified correct output formatting in all three languages
 - Confirmed successful video processing and bird detection
 
