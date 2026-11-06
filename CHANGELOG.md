@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`train` crashed with transformers 5.x**: the image processor is now passed as `processing_class` (falls back to `tokenizer` on older versions)
+- **`train --model` was ignored**: the requested base model is now actually loaded (previously always `google/efficientnet-b0`)
+- **Data augmentation was applied only once**: augmentation now runs on the fly (`set_transform`), so every epoch sees new random variants
+- **Ctrl+C during training did nothing on first press**: training now stops after the current step and saves the model (`"interrupted": true` in `training_config.json`)
+- **`clean-gray` did not check any images**: the check loop had ended up as dead code in another function
+- **`extract --log` aborted with "unrecognized arguments"**; `--image-size`, `--max-detections`, `--min-box-size`, `--max-box-size` and `--skip-blurry` were silently ignored; `--convert` was not reachable via `vogel-trainer extract`. Both entry points now share one argument definition
+- **`--bg-model` had no effect and rembg reloaded its model for every crop**: one rembg session per model is now cached
+- **`--species-threshold` without `--species-model` discarded every bird**: it is now ignored (with a notice) without a classifier
+- **Deduplication compared hashes of different image versions** (raw crop vs. saved image): hashes are now computed on the final image
+- Quality report could show more than 100 % rejected; `total_checked` of `quality-check` reported the number of problem images
+- Progress output crashed for videos with unknown/negative frame count
+- `test --data` ignored PNG datasets
+- Command errors (e.g. missing log permissions) now return a non-zero exit code
+- 15 duplicate German translation keys removed; missing key `loading_species_model`
+
+### Changed
+- **`organize --max-images-per-class` no longer deletes source images**: it only limits which images are copied. The balance check now runs before anything is written
+- **`organize` splits by video/session by default** (`--split-by session`) to avoid near-identical frames in train and val; new `--seed` (reproducible split) and `--clean` options
+- **`classify --delete-source` only deletes successfully sorted images** (requires `--sort-output`); unclassified files and a sort output inside the input folder are kept
+- Transparent images use the same gray background for validation, `test`, `classify`, `evaluate` and auto-sorting (training still uses random backgrounds)
+- Video, image and convert mode share one crop pipeline: `--crop-padding` is a percentage in both video and image mode, images keep their aspect ratio when resized, convert mode keeps alpha channels and avoids name collisions
+- `extract` loads YOLO/classifier once per run instead of once per image; skipped video frames are only grabbed, not decoded; species classifier uses the GPU when available
+- `classify` and `evaluate` process images in batches (`--batch-size`); `evaluate` lists low-confidence correct predictions separately (`reason` column in the CSV)
+- `test --data` uses all validation images by default (`--samples N` to sample)
+- `deduplicate` / `quality-check` / `clean-*` skip their own output folders (`duplicates/`, `low_quality/`, `invalid_*`) when scanning; `clean-*` keeps the subfolder structure when moving
+- `--log` falls back to `~/.local/state/vogel-model-trainer/logs/` if `/var/log/vogel-kamera-linux/` is not writable (`VOGEL_LOG_DIR` overrides)
+- New global `--debug` flag shows full tracebacks
+- Requires Python ≥ 3.10 and transformers ≥ 4.46; `tqdm` added as dependency
+- CI: tests and ruff now run on every push and pull request
+
 ## [0.1.28] - 2026-02-22
 
 ### Fixed

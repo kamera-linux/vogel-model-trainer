@@ -10,181 +10,58 @@ Provides commands for:
 """
 
 import argparse
+import contextlib
+import shutil
 import sys
 from pathlib import Path
-from datetime import datetime
+
 from vogel_model_trainer import __version__
-
-
-class Tee:
-    """Redirect output to multiple streams (console and file)."""
-    def __init__(self, *files):
-        self.files = files
-    
-    def write(self, data):
-        for f in self.files:
-            f.write(data)
-            f.flush()
-    
-    def flush(self):
-        for f in self.files:
-            f.flush()
+from vogel_model_trainer.utils.logging import Tee, capture_output  # noqa: F401  (Tee re-exported)
 
 
 def extract_command(args):
-    """Execute the extract command by calling extractor.main() directly."""
-    # Delegate to extractor.main() which handles videos, images, and convert mode
-    # This ensures we use the full-featured implementation
-    import sys
-    
-    # Build arguments list for extractor.main()
-    cli_args = []
-    
-    # Convert mode or extraction mode
-    if hasattr(args, 'convert') and args.convert:
-        cli_args.append('--convert')
-        if args.source:
-            cli_args.extend(['--source', args.source])
-        if args.target:
-            cli_args.extend(['--target', args.target])
-    else:
-        # Extraction mode - input file/directory
-        if args.video:
-            cli_args.append(args.video)
-        if args.folder:
-            cli_args.extend(['--folder', args.folder])
-        if args.bird:
-            cli_args.extend(['--bird', args.bird])
-    
-    # Common arguments
-    if hasattr(args, 'species_model') and args.species_model:
-        cli_args.extend(['--species-model', args.species_model])
-    if hasattr(args, 'detection_model') and args.detection_model:
-        cli_args.extend(['--detection-model', args.detection_model])
-    if hasattr(args, 'threshold') and args.threshold is not None:
-        cli_args.extend(['--threshold', str(args.threshold)])
-    if hasattr(args, 'species_threshold') and args.species_threshold is not None:
-        cli_args.extend(['--species-threshold', str(args.species_threshold)])
-    if hasattr(args, 'sample_rate') and args.sample_rate is not None:
-        cli_args.extend(['--sample-rate', str(args.sample_rate)])
-    if hasattr(args, 'recursive') and args.recursive:
-        cli_args.append('--recursive')
-    if hasattr(args, 'no_resize') and args.no_resize:
-        cli_args.append('--no-resize')
-    
-    # Quality parameters (only those supported by extractor.main())
-    if hasattr(args, 'quality') and args.quality is not None:
-        cli_args.extend(['--quality', str(args.quality)])
-    if hasattr(args, 'min_sharpness') and args.min_sharpness is not None:
-        cli_args.extend(['--min-sharpness', str(args.min_sharpness)])
-    if hasattr(args, 'min_edge_quality') and args.min_edge_quality is not None:
-        cli_args.extend(['--min-edge-quality', str(args.min_edge_quality)])
-    if hasattr(args, 'save_quality_report') and args.save_quality_report:
-        cli_args.append('--quality-report')
-    
-    # Deduplication
-    if hasattr(args, 'deduplicate') and args.deduplicate:
-        cli_args.append('--deduplicate')
-    if hasattr(args, 'similarity_threshold') and args.similarity_threshold is not None:
-        cli_args.extend(['--similarity-threshold', str(args.similarity_threshold)])
-    
-    # Background removal
-    if hasattr(args, 'remove_background') and args.remove_background:
-        cli_args.append('--bg-remove')
-    if hasattr(args, 'bg_color') and args.bg_color:
-        # Convert color names to RGB values
-        color_map = {
-            'white': '255,255,255',
-            'black': '0,0,0',
-            'gray': '128,128,128',
-            'green-screen': '0,255,0',
-            'blue-screen': '0,0,255'
-        }
-        bg_color_value = color_map.get(args.bg_color, args.bg_color)
-        cli_args.extend(['--bg-color', bg_color_value])
-    if hasattr(args, 'bg_model') and args.bg_model:
-        cli_args.extend(['--bg-model', args.bg_model])
-    if hasattr(args, 'bg_transparent') and args.bg_transparent:
-        cli_args.append('--bg-transparent')
-    if hasattr(args, 'bg_fill_black') and args.bg_fill_black:
-        cli_args.append('--bg-fill-black')
-    if hasattr(args, 'crop_padding') and args.crop_padding is not None:
-        cli_args.extend(['--crop-padding', str(args.crop_padding)])
-    
-    # Logging
-    if hasattr(args, 'log') and args.log:
-        cli_args.append('--log')
-    
-    # Override sys.argv and call extractor.main()
-    original_argv = sys.argv
-    sys.argv = ['extractor.py'] + cli_args
-    
-    try:
-        from vogel_model_trainer.core import extractor
-        extractor.main()
-    finally:
-        sys.argv = original_argv
+    """Execute the extract command (video/image extraction or --convert)."""
+    from vogel_model_trainer.core import extractor
+    return extractor.run(args, args._parser)
 
 
 def organize_command(args):
     """Execute the organize command."""
     from vogel_model_trainer.core import organizer
     from vogel_model_trainer.i18n import _
-    
+
     print(_('cli_organizing_dataset', path=args.source))
     print(_('cli_output_directory', path=args.output))
-    
-    # Call the organization function
+
     organizer.organize_dataset(
         source_dir=args.source,
         output_dir=args.output,
         train_ratio=args.train_ratio,
         max_images_per_class=args.max_images_per_class,
-        tolerance_percent=args.tolerance
+        tolerance_percent=args.tolerance,
+        split_by=args.split_by,
+        seed=args.seed,
+        clean=args.clean,
     )
+    return 0
 
 
 def train_command(args):
     """Execute the train command."""
     from vogel_model_trainer.core import trainer
     from vogel_model_trainer.i18n import _
-    
-    # Setup logging if requested
-    log_file = None
-    original_stdout = sys.stdout
-    original_stderr = sys.stderr
-    
-    if args.log:
+
+    with contextlib.ExitStack() as stack:
         try:
-            # Create log directory structure: /var/log/vogel-kamera-linux/YYYY/KWXX/
-            now = datetime.now()
-            year = now.strftime('%Y')
-            week = now.strftime('%V')
-            timestamp = now.strftime('%Y%m%d_%H%M%S')
-            
-            log_dir = Path(f'/var/log/vogel-kamera-linux/{year}/KW{week}')
-            log_dir.mkdir(parents=True, exist_ok=True)
-            
-            log_file_path = log_dir / f'{timestamp}_train.log'
-            log_file = open(log_file_path, 'w', encoding='utf-8')
-            
-            # Redirect stdout and stderr to both console and file
-            sys.stdout = Tee(original_stdout, log_file)
-            sys.stderr = Tee(original_stderr, log_file)
-            
-            print(_('log_file', path=str(log_file_path)))
-            
+            stack.enter_context(capture_output('train', enabled=args.log))
         except PermissionError:
             print(f"⚠️  {_('log_permission_denied')}", file=sys.stderr)
             print(f"   {_('log_permission_hint')}", file=sys.stderr)
-            print("   sudo mkdir -p /var/log/vogel-kamera-linux && sudo chown $USER /var/log/vogel-kamera-linux")
             return 1
-    
-    try:
+
         print(_('cli_training_model', path=args.data))
         print(_('cli_output_directory', path=args.output))
-        
-        # Call the training function
+
         trainer.train_model(
             data_dir=args.data,
             output_dir=args.output,
@@ -206,36 +83,33 @@ def train_command(args):
             mixed_precision=args.mixed_precision,
             push_to_hub=args.push_to_hub
         )
-    
-    finally:
-        # Restore original stdout/stderr and close log file
-        if log_file:
-            sys.stdout = original_stdout
-            sys.stderr = original_stderr
-            log_file.close()
-
+    return 0
 
 
 def test_command(args):
     """Execute the test command."""
     from vogel_model_trainer.core import tester
-    
+
+    if not args.data and not args.image:
+        print("❌ Error: use --data <dataset> or --image <file>", file=sys.stderr)
+        return 2
+
     print(f"🧪 Testing model: {args.model}")
-    
-    # Call the testing function
     tester.test_model(
         model_path=args.model,
         data_dir=args.data,
-        image_path=args.image
+        image_path=args.image,
+        samples=args.samples,
+        seed=args.seed,
     )
+    return 0
 
 
 def deduplicate_command(args):
     """Execute the deduplicate command."""
     from vogel_model_trainer.core import deduplicator
-    
-    # Run deduplication
-    stats = deduplicator.deduplicate_dataset(
+
+    deduplicator.deduplicate_dataset(
         data_dir=args.data_dir,
         similarity_threshold=args.threshold,
         hash_method=args.method,
@@ -243,16 +117,14 @@ def deduplicate_command(args):
         keep=args.keep,
         recursive=args.recursive
     )
-    
     return 0
 
 
 def quality_check_command(args):
     """Execute the quality-check command."""
     from vogel_model_trainer.core import deduplicator
-    
-    # Run quality check
-    stats = deduplicator.quality_check_dataset(
+
+    deduplicator.quality_check_dataset(
         data_dir=args.data_dir,
         blur_threshold=args.blur_threshold,
         min_resolution=args.min_resolution,
@@ -261,49 +133,157 @@ def quality_check_command(args):
         mode=args.mode,
         recursive=args.recursive
     )
-    
     return 0
+
+
+def _clean_images(data_dir, image_files, validate, describe, mode, move_dirname, invalid_label, all_valid_msg):
+    """
+    Shared implementation of clean-gray / clean-transparent.
+
+    Args:
+        validate: callable(path) -> result dict with 'valid' and 'reason'
+        describe: callable(result) -> detail line for the report
+        mode: 'report', 'delete' or 'move'
+        move_dirname: folder (inside data_dir) for --mode move; subfolders are preserved
+    """
+    from vogel_model_trainer.utils.image import unique_path
+
+    invalid_images = []
+    for img_path in image_files:
+        result = validate(str(img_path))
+        if not result['valid']:
+            invalid_images.append((img_path, result))
+            if mode != 'delete':
+                print(f"❌ {img_path.relative_to(data_dir)}")
+                print(f"   Reason: {result['reason']}")
+                print(f"   {describe(result)}")
+                print()
+
+    total_checked = len(image_files)
+    print("=" * 70)
+    print("📊 Summary:")
+    print(f"   Total images checked: {total_checked}")
+    print(f"   Valid images: {total_checked - len(invalid_images)}")
+    print(f"   {invalid_label}: {len(invalid_images)}")
+    print()
+
+    if not invalid_images:
+        print(all_valid_msg)
+        return 0
+
+    if mode == 'report':
+        print("ℹ️  Mode: REPORT only (no files modified)")
+        print("💡 Use --mode delete to remove invalid images")
+        print(f"💡 Use --mode move to move them to {move_dirname}/")
+        return 0
+
+    errors = 0
+    if mode == 'delete':
+        print(f"🗑️  Deleting {len(invalid_images)} invalid images...")
+        for img_path, _result in invalid_images:
+            try:
+                img_path.unlink()
+                print(f"   Deleted: {img_path.name}")
+            except OSError as exc:
+                errors += 1
+                print(f"   ⚠️  {img_path.name}: {exc}")
+        print(f"✅ Deleted {len(invalid_images) - errors} images")
+
+    elif mode == 'move':
+        move_dir = data_dir / move_dirname
+        print(f"📁 Moving {len(invalid_images)} invalid images to {move_dir}...")
+        for img_path, _result in invalid_images:
+            dest = unique_path(move_dir / img_path.relative_to(data_dir))
+            try:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(img_path), str(dest))
+                print(f"   Moved: {img_path.name}")
+            except OSError as exc:
+                errors += 1
+                print(f"   ⚠️  {img_path.name}: {exc}")
+        print(f"✅ Moved {len(invalid_images) - errors} images to {move_dir}")
+
+    return 1 if errors else 0
 
 
 def clean_gray_command(args):
     """Execute the clean-gray command to remove images with too much/little gray background."""
     from vogel_model_trainer.core import tester
-    from pathlib import Path
-    import shutil
-    
+    from vogel_model_trainer.utils.image import find_images
+
     data_dir = Path(args.data_dir).expanduser()
-    
     if not data_dir.exists():
         print(f"❌ Error: Directory not found: {data_dir}")
         return 1
-    
-    # Find all image files (JPG and PNG)
-    if args.recursive:
-        jpg_files = list(data_dir.rglob("*.jpg")) + list(data_dir.rglob("*.jpeg"))
-        png_files = list(data_dir.rglob("*.png"))
-    else:
-        jpg_files = list(data_dir.glob("*.jpg")) + list(data_dir.glob("*.jpeg"))
-        png_files = list(data_dir.glob("*.png"))
-    
-    image_files = jpg_files + png_files
-    
+
+    image_files = [p for p in find_images(data_dir, recursive=args.recursive)
+                   if p.suffix.lower() in ('.jpg', '.jpeg', '.png')]
     if not image_files:
         print(f"ℹ️  No image files found in {data_dir}")
         return 0
-    
+
     print(f"🔍 Checking {len(image_files)} images for gray background...")
-    print(f"📊 Thresholds:")
+    print("📊 Thresholds:")
     print(f"   • Min gray ratio: {args.min_gray*100:.0f}%")
     print(f"   • Max gray ratio: {args.max_gray*100:.0f}%")
     print(f"   • Gray tolerance: ±{args.gray_tolerance}")
     print()
 
+    return _clean_images(
+        data_dir, image_files,
+        validate=lambda path: tester.validate_gray_background(
+            path, min_gray_ratio=args.min_gray, max_gray_ratio=args.max_gray,
+            gray_tolerance=args.gray_tolerance),
+        describe=lambda r: (f"Gray: {r['gray_ratio']:.1%} ({r['gray_pixels']} pixels), "
+                            f"Bird: {r['bird_ratio']:.1%} ({r['bird_pixels']} pixels)"),
+        mode=args.mode,
+        move_dirname="invalid_gray",
+        invalid_label="Invalid (wrong gray ratio)",
+        all_valid_msg="✅ All images have valid gray background ratio!",
+    )
+
+
+def clean_transparent_command(args):
+    """Execute the clean-transparent command to remove fragmented/incomplete transparent images."""
+    from vogel_model_trainer.core import tester
+    from vogel_model_trainer.utils.image import find_images
+
+    data_dir = Path(args.data_dir).expanduser()
+    if not data_dir.exists():
+        print(f"❌ Error: Directory not found: {data_dir}")
+        return 1
+
+    png_files = [p for p in find_images(data_dir, recursive=args.recursive) if p.suffix.lower() == '.png']
+    if not png_files:
+        print(f"ℹ️  No PNG files found in {data_dir}")
+        return 0
+
+    print(f"🔍 Checking {len(png_files)} PNG images...")
+    print("📊 Thresholds:")
+    print(f"   • Min visible pixels: {args.min_pixels}")
+    print(f"   • Max transparency: {args.max_transparency*100:.0f}%")
+    print(f"   • Min region size: {args.min_region}")
+    print()
+
+    return _clean_images(
+        data_dir, png_files,
+        validate=lambda path: tester.validate_transparent_image(
+            path, min_visible_pixels=args.min_pixels, max_transparency=args.max_transparency,
+            min_region_size=args.min_region),
+        describe=lambda r: (f"Visible pixels: {r['visible_pixels']}, "
+                            f"Transparency: {r['transparency_ratio']:.1%}, "
+                            f"Largest region: {r['largest_region']}"),
+        mode=args.mode,
+        move_dirname="invalid_transparent",
+        invalid_label="Invalid/Fragmented",
+        all_valid_msg="✅ All images are valid!",
+    )
+
 
 def classify_command(args):
     """Execute the classify command for bulk bird image classification."""
     from vogel_model_trainer.core import classifier
-    
-    # Run classification
+
     classifier.classify_images(
         model_path=args.species_model,
         input_dir=args.input,
@@ -318,190 +298,25 @@ def classify_command(args):
         dry_run=args.dry_run,
         recursive=not args.no_recursive
     )
-    
     return 0
 
 
 def evaluate_command(args):
     """Execute the evaluate command for model evaluation and analytics."""
     from vogel_model_trainer.core import evaluator
-    
-    # Run evaluation
+
     evaluator.evaluate_model(
         model_path=args.species_model,
         test_dir=args.test_dir,
         export_misclassified=args.export_misclassified,
         export_json=args.export_json,
-        min_confidence=args.min_confidence if hasattr(args, 'min_confidence') else 0.0
+        min_confidence=args.min_confidence,
+        batch_size=args.batch_size,
     )
-    
     return 0
 
 
-    invalid_images = []
-    total_checked = 0
-    
-    for img_path in image_files:
-        result = tester.validate_gray_background(
-            str(img_path),
-            min_gray_ratio=args.min_gray,
-            max_gray_ratio=args.max_gray,
-            gray_tolerance=args.gray_tolerance
-        )
-        
-        total_checked += 1
-        
-        if not result['valid']:
-            invalid_images.append((img_path, result))
-            if args.mode != 'delete':
-                print(f"❌ {img_path.name}")
-                print(f"   Reason: {result['reason']}")
-                print(f"   Gray: {result['gray_ratio']:.1%} ({result['gray_pixels']} pixels), " +
-                      f"Bird: {result['bird_ratio']:.1%} ({result['bird_pixels']} pixels)")
-                print()
-    
-    # Summary
-    print("=" * 70)
-    print(f"📊 Summary:")
-    print(f"   Total images checked: {total_checked}")
-    print(f"   Valid images: {total_checked - len(invalid_images)}")
-    print(f"   Invalid (wrong gray ratio): {len(invalid_images)}")
-    print()
-    
-    if invalid_images:
-        if args.mode == 'report':
-            print("ℹ️  Mode: REPORT only (no files modified)")
-            print("💡 Use --mode delete to remove invalid images")
-            print("💡 Use --mode move to move them to invalid_gray/")
-        
-        elif args.mode == 'delete':
-            print(f"🗑️  Deleting {len(invalid_images)} invalid images...")
-            for img_path, _ in invalid_images:
-                img_path.unlink()
-                print(f"   Deleted: {img_path.name}")
-            print(f"✅ Deleted {len(invalid_images)} images")
-        
-        elif args.mode == 'move':
-            # Create output directory
-            move_dir = data_dir / "invalid_gray"
-            move_dir.mkdir(exist_ok=True)
-            
-            print(f"📁 Moving {len(invalid_images)} invalid images to {move_dir}...")
-            for img_path, _ in invalid_images:
-                dest = move_dir / img_path.name
-                # Handle name collisions
-                counter = 1
-                while dest.exists():
-                    dest = move_dir / f"{img_path.stem}_{counter}{img_path.suffix}"
-                    counter += 1
-                
-                shutil.move(str(img_path), str(dest))
-                print(f"   Moved: {img_path.name}")
-            
-            print(f"✅ Moved {len(invalid_images)} images to {move_dir}")
-    
-    else:
-        print("✅ All images have valid gray background ratio!")
-    
-    return 0
-
-
-def clean_transparent_command(args):
-    """Execute the clean-transparent command to remove fragmented/incomplete transparent images."""
-    from vogel_model_trainer.core import tester
-    from pathlib import Path
-    import shutil
-    
-    data_dir = Path(args.data_dir).expanduser()
-    
-    if not data_dir.exists():
-        print(f"❌ Error: Directory not found: {data_dir}")
-        return 1
-    
-    # Find all PNG files
-    if args.recursive:
-        png_files = list(data_dir.rglob("*.png"))
-    else:
-        png_files = list(data_dir.glob("*.png"))
-    
-    if not png_files:
-        print(f"ℹ️  No PNG files found in {data_dir}")
-        return 0
-    
-    print(f"🔍 Checking {len(png_files)} PNG images...")
-    print(f"📊 Thresholds:")
-    print(f"   • Min visible pixels: {args.min_pixels}")
-    print(f"   • Max transparency: {args.max_transparency*100:.0f}%")
-    print(f"   • Min region size: {args.min_region}")
-    print()
-    
-    invalid_images = []
-    total_checked = 0
-    
-    for img_path in png_files:
-        result = tester.validate_transparent_image(
-            str(img_path),
-            min_visible_pixels=args.min_pixels,
-            max_transparency=args.max_transparency,
-            min_region_size=args.min_region
-        )
-        
-        total_checked += 1
-        
-        if not result['valid']:
-            invalid_images.append((img_path, result))
-            if args.mode != 'delete':
-                print(f"❌ {img_path.name}")
-                print(f"   Reason: {result['reason']}")
-                print(f"   Visible pixels: {result['visible_pixels']}, " +
-                      f"Transparency: {result['transparency_ratio']:.1%}, " +
-                      f"Largest region: {result['largest_region']}")
-                print()
-    
-    # Summary
-    print("=" * 70)
-    print(f"📊 Summary:")
-    print(f"   Total images checked: {total_checked}")
-    print(f"   Valid images: {total_checked - len(invalid_images)}")
-    print(f"   Invalid/Fragmented: {len(invalid_images)}")
-    print()
-    
-    if invalid_images:
-        if args.mode == 'report':
-            print("ℹ️  Mode: REPORT only (no files modified)")
-            print("💡 Use --mode delete to remove invalid images")
-            print("💡 Use --mode move to move them to invalid_transparent/")
-        
-        elif args.mode == 'delete':
-            print(f"🗑️  Deleting {len(invalid_images)} invalid images...")
-            for img_path, _ in invalid_images:
-                img_path.unlink()
-                print(f"   Deleted: {img_path.name}")
-            print(f"✅ Deleted {len(invalid_images)} images")
-        
-        elif args.mode == 'move':
-            # Create output directory
-            move_dir = data_dir / "invalid_transparent"
-            move_dir.mkdir(exist_ok=True)
-            
-            print(f"📁 Moving {len(invalid_images)} invalid images to {move_dir}...")
-            for img_path, _ in invalid_images:
-                dest = move_dir / img_path.name
-                # Handle name collisions
-                counter = 1
-                while dest.exists():
-                    dest = move_dir / f"{img_path.stem}_{counter}{img_path.suffix}"
-                    counter += 1
-                shutil.move(str(img_path), str(dest))
-                print(f"   Moved: {img_path.name}")
-            print(f"✅ Moved {len(invalid_images)} images to {move_dir}")
-    else:
-        print("✅ All images are valid!")
-    
-    return 0
-
-
-def main():
+def main(argv=None):
     """Main entry point for the CLI."""
     parser = argparse.ArgumentParser(
         prog="vogel-trainer",
@@ -543,6 +358,11 @@ For more information, visit:
         action="version",
         version=f"%(prog)s {__version__}"
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Show full tracebacks on errors"
+    )
     
     subparsers = parser.add_subparsers(
         dest="command",
@@ -551,175 +371,16 @@ For more information, visit:
     )
     
     # ========== EXTRACT COMMAND ==========
+    from vogel_model_trainer.core import extractor
     extract_parser = subparsers.add_parser(
         "extract",
-        help="Extract bird images from videos",
-        description="Extract bird crops from videos using YOLO detection"
+        help="Extract bird images from videos or images",
+        description="Extract bird crops from videos/images using YOLO detection "
+                    "(or process existing images with --convert)"
     )
-    extract_parser.add_argument(
-        "video",
-        help="Video file, directory, or glob pattern (e.g., '*.mp4', '~/Videos/**/*.mp4')"
-    )
-    extract_parser.add_argument(
-        "--folder",
-        required=True,
-        help="Base directory for extracted bird images"
-    )
-    extract_parser.add_argument(
-        "--bird",
-        help="Manual bird species name (e.g., rotkehlchen, kohlmeise). Creates subdirectory."
-    )
-    extract_parser.add_argument(
-        "--species-model",
-        help="Path to custom species classifier for automatic sorting"
-    )
-    extract_parser.add_argument(
-        "--image-size",
-        type=int,
-        default=224,
-        help="Target image size in pixels (default: 224, use 0 for original size)"
-    )
-    extract_parser.add_argument(
-        "--detection-model",
-        default="yolov26n.pt",
-        help="YOLO detection model path (default: yolov26n.pt)"
-    )
-    extract_parser.add_argument(
-        "--threshold",
-        type=float,
-        default=0.5,
-        help="Detection confidence threshold (default: 0.5 for high quality)"
-    )
-    extract_parser.add_argument(
-        "--species-threshold",
-        type=float,
-        default=None,
-        help="Minimum confidence for species classification (e.g., 0.85 for 85%%). Only exports birds with confidence >= this value."
-    )
-    extract_parser.add_argument(
-        "--sample-rate",
-        type=int,
-        default=3,
-        help="Analyze every Nth frame (default: 3)"
-    )
-    extract_parser.add_argument(
-        "--max-detections",
-        type=int,
-        default=10,
-        help="Maximum number of bird detections per frame (default: 10)"
-    )
-    extract_parser.add_argument(
-        "--min-box-size",
-        type=int,
-        default=50,
-        help="Minimum bounding box size in pixels (default: 50)"
-    )
-    extract_parser.add_argument(
-        "--max-box-size",
-        type=int,
-        default=800,
-        help="Maximum bounding box size in pixels (default: 800)"
-    )
-    extract_parser.add_argument(
-        "--quality",
-        type=int,
-        default=95,
-        help="JPEG quality for saved images 1-100 (default: 95)"
-    )
-    extract_parser.add_argument(
-        "--skip-blurry",
-        action="store_true",
-        help="Skip blurry/out-of-focus images (experimental)"
-    )
-    extract_parser.add_argument(
-        "--deduplicate",
-        action="store_true",
-        help="Skip duplicate/similar images using perceptual hashing"
-    )
-    extract_parser.add_argument(
-        "--similarity-threshold",
-        type=int,
-        default=5,
-        help="Similarity threshold for duplicates - Hamming distance 0-64, lower=stricter (default: 5)"
-    )
-    extract_parser.add_argument(
-        "--min-sharpness",
-        type=float,
-        default=None,
-        help="Minimum sharpness score (Laplacian variance). Typical values: 100-300. Higher = sharper required."
-    )
-    extract_parser.add_argument(
-        "--min-edge-quality",
-        type=float,
-        default=None,
-        help="Minimum edge quality score (Sobel gradient). Typical values: 50-150. Higher = clearer edges required."
-    )
-    extract_parser.add_argument(
-        "--save-quality-report",
-        action="store_true",
-        help="Save detailed quality statistics report after extraction"
-    )
-    extract_parser.add_argument(
-        "--remove-background",
-        action="store_true",
-        help="Remove background using rembg AI model (requires rembg package)"
-    )
-    extract_parser.add_argument(
-        "--bg-color",
-        type=str,
-        default="gray",
-        choices=["white", "black", "gray", "green-screen", "blue-screen"],
-        help="Background color when using --remove-background (default: gray for optimal training)"
-    )
-    extract_parser.add_argument(
-        "--bg-model",
-        type=str,
-        default="u2net",
-        choices=["u2net", "u2netp", "isnet-general-use"],
-        help="rembg model for background removal (default: u2net)"
-    )
-    extract_parser.add_argument(
-        "--bg-transparent",
-        action="store_true",
-        default=False,
-        help="Create PNG with transparent background. Use --bg-transparent to enable (default: gray background)"
-    )
-    extract_parser.add_argument(
-        "--no-bg-transparent",
-        dest="bg_transparent",
-        action="store_false",
-        help="Disable transparent background, use colored background instead"
-    )
-    extract_parser.add_argument(
-        "--bg-fill-black",
-        action="store_true",
-        default=False,
-        help="Make black PADDING/BACKGROUND areas transparent (requires --bg-transparent). Preserves black feathers!"
-    )
-    extract_parser.add_argument(
-        "--no-bg-fill-black",
-        dest="bg_fill_black",
-        action="store_false",
-        help="Disable filling black padding areas with transparency (keeps black boxes opaque)"
-    )
-    extract_parser.add_argument(
-        "--crop-padding",
-        type=int,
-        default=0,
-        help="With --remove-background: Pixels to expand mask around bird (keeps more background near feet/beak). Recommended: 5-20. Without: adjusts detection box percentage."
-    )
-    extract_parser.add_argument(
-        "--recursive", "-r",
-        action="store_true",
-        help="Search directories recursively for video files"
-    )
-    extract_parser.add_argument(
-        "--log",
-        action="store_true",
-        help="Save console output to log file in /var/log/vogel-kamera-linux/YYYY/KWXX/"
-    )
-    extract_parser.set_defaults(func=extract_command)
-    
+    extractor.add_extract_arguments(extract_parser)
+    extract_parser.set_defaults(func=extract_command, _parser=extract_parser)
+
     # ========== ORGANIZE COMMAND ==========
     organize_parser = subparsers.add_parser(
         "organize",
@@ -735,24 +396,8 @@ For more information, visit:
         required=True,
         help="Output directory for organized dataset"
     )
-    organize_parser.add_argument(
-        "--train-ratio",
-        type=float,
-        default=0.8,
-        help="Training set ratio (default: 0.8 = 80%%)"
-    )
-    organize_parser.add_argument(
-        "--max-images-per-class",
-        type=int,
-        default=None,
-        help="Maximum images per class (e.g., 100, 200, 300). Excess images will be deleted."
-    )
-    organize_parser.add_argument(
-        "--tolerance",
-        type=float,
-        default=15.0,
-        help="Maximum allowed class imbalance in percent (default: 15.0)"
-    )
+    from vogel_model_trainer.core import organizer
+    organizer.add_organize_arguments(organize_parser)
     organize_parser.set_defaults(func=organize_command)
     
     # ========== TRAIN COMMAND ==========
@@ -873,7 +518,8 @@ For more information, visit:
     train_parser.add_argument(
         "--log",
         action="store_true",
-        help="Save console output to log file in /var/log/vogel-kamera-linux/YYYY/KWXX/"
+        help="Also write console output to a log file (/var/log/vogel-kamera-linux/YYYY/KWxx/, "
+             "falls back to ~/.local/state/vogel-model-trainer/logs/ if not writable)"
     )
     train_parser.set_defaults(func=train_command)
     
@@ -894,6 +540,18 @@ For more information, visit:
     test_parser.add_argument(
         "-i", "--image",
         help="Path to single image for testing"
+    )
+    test_parser.add_argument(
+        "--samples",
+        type=int,
+        default=0,
+        help="Images per species to test with --data (default: 0 = all images)"
+    )
+    test_parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for --samples (default: 42)"
     )
     test_parser.set_defaults(func=test_command)
     
@@ -1164,19 +822,29 @@ For more information, visit:
         default=0.0,
         help="Minimum confidence threshold for evaluation (0.0-1.0, default: 0.0)"
     )
+    evaluate_parser.add_argument(
+        "--batch-size", "-b",
+        type=int,
+        default=32,
+        help="Inference batch size (default: 32)"
+    )
     evaluate_parser.set_defaults(func=evaluate_command)
     
     # Parse arguments and execute command
-    args = parser.parse_args()
-    
+    args = parser.parse_args(argv)
+
     try:
-        args.func(args)
+        exit_code = args.func(args)
     except KeyboardInterrupt:
         print("\n\n⏸️  Operation cancelled by user")
         sys.exit(130)
     except Exception as e:
+        if args.debug:
+            raise
         print(f"\n❌ Error: {e}", file=sys.stderr)
+        print("   (use --debug for the full traceback)", file=sys.stderr)
         sys.exit(1)
+    sys.exit(exit_code or 0)
 
 
 if __name__ == "__main__":

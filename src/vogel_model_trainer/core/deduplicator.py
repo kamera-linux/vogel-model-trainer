@@ -12,94 +12,98 @@ import shutil
 import cv2
 import numpy as np
 from vogel_model_trainer.i18n import _
+from vogel_model_trainer.utils.image import INFERENCE_BACKGROUND, find_images, to_rgb, unique_path
+
+
+HASH_FUNCTIONS = {
+    'phash': imagehash.phash,
+    'dhash': imagehash.dhash,
+    'whash': imagehash.whash,
+    'average_hash': imagehash.average_hash,
+}
 
 
 def compute_image_hash(image_path, hash_method='phash'):
     """
     Compute perceptual hash for an image.
-    
+
+    Transparent images are hashed on the gray inference background so that a
+    PNG and a JPEG of the same bird compare as similar.
+
     Args:
         image_path: Path to image file
         hash_method: Hash method - 'phash', 'dhash', 'whash', or 'average_hash'
-    
+
     Returns:
         ImageHash object or None if error
     """
+    hash_fn = HASH_FUNCTIONS.get(hash_method, imagehash.phash)
     try:
-        img = Image.open(image_path)
-        
-        if hash_method == 'phash':
-            return imagehash.phash(img)
-        elif hash_method == 'dhash':
-            return imagehash.dhash(img)
-        elif hash_method == 'whash':
-            return imagehash.whash(img)
-        elif hash_method == 'average_hash':
-            return imagehash.average_hash(img)
-        else:
-            return imagehash.phash(img)  # Default
+        with Image.open(image_path) as img:
+            img.load()
+            return hash_fn(to_rgb(img, INFERENCE_BACKGROUND))
     except Exception as e:
         print(f"⚠️  Error hashing {image_path}: {e}")
         return None
 
 
-def find_duplicates(data_dir, similarity_threshold=5, hash_method='phash', recursive=True):
+def _hash_matrix(hashes):
+    """Stack ImageHash objects into an (n, bits) boolean matrix."""
+    return np.stack([np.asarray(h.hash, dtype=bool).ravel() for h in hashes])
+
+
+def find_duplicates(data_dir, similarity_threshold=5, hash_method='phash', recursive=True,
+                    return_count=False):
     """
     Find duplicate images in a directory.
-    
+
+    Folders created by previous cleanup runs (duplicates/, low_quality/, ...)
+    are skipped.
+
     Args:
         data_dir: Directory to scan
         similarity_threshold: Hamming distance threshold (0-64, lower = more similar)
         hash_method: Hash method to use
         recursive: Search recursively
-    
+        return_count: Also return the number of scanned images
+
     Returns:
         dict: {original_image: [duplicate1, duplicate2, ...]}
+        (and the number of scanned images if ``return_count``)
     """
     data_dir = Path(data_dir)
-    
-    # Collect all image files
-    if recursive:
-        image_files = []
-        for ext in ['*.jpg', '*.jpeg', '*.png', '*.JPG', '*.JPEG', '*.PNG']:
-            image_files.extend(data_dir.rglob(ext))
-    else:
-        image_files = []
-        for ext in ['*.jpg', '*.jpeg', '*.png', '*.JPG', '*.JPEG', '*.PNG']:
-            image_files.extend(data_dir.glob(ext))
-    
+    image_files = [p for p in find_images(data_dir, recursive=recursive)
+                   if p.suffix.lower() in ('.jpg', '.jpeg', '.png')]
+
     print(f"🔍 {_('dedup_scanning', count=len(image_files))}")
-    
-    # Compute hashes
-    hashes = {}
+
+    paths, hashes = [], []
     for i, img_path in enumerate(image_files):
         if (i + 1) % 100 == 0:
             print(f"   ⏳ {_('dedup_progress', current=i+1, total=len(image_files))}")
-        
         img_hash = compute_image_hash(img_path, hash_method)
-        if img_hash:
-            hashes[img_path] = img_hash
-    
+        if img_hash is not None:
+            paths.append(img_path)
+            hashes.append(img_hash)
+
     print(f"✅ {_('dedup_hashed', count=len(hashes))}")
-    
-    # Find duplicates
+
     duplicates = defaultdict(list)
-    processed = set()
-    
-    hash_list = list(hashes.items())
-    for i, (path1, hash1) in enumerate(hash_list):
-        if path1 in processed:
-            continue
-        
-        for path2, hash2 in hash_list[i+1:]:
-            if path2 in processed:
+    if hashes:
+        matrix = _hash_matrix(hashes)
+        processed = np.zeros(len(paths), dtype=bool)
+        for i in range(len(paths)):
+            if processed[i]:
                 continue
-            
-            distance = hash1 - hash2
-            if distance <= similarity_threshold:
-                duplicates[path1].append(path2)
-                processed.add(path2)
-    
+            distances = np.count_nonzero(matrix[i + 1:] != matrix[i], axis=1)
+            for offset in np.nonzero((distances <= similarity_threshold) & ~processed[i + 1:])[0]:
+                j = i + 1 + int(offset)
+                duplicates[paths[i]].append(paths[j])
+                processed[j] = True
+
+    duplicates = dict(duplicates)
+    if return_count:
+        return duplicates, len(image_files)
     return duplicates
 
 
@@ -132,11 +136,12 @@ def deduplicate_dataset(data_dir, similarity_threshold=5, hash_method='phash',
     print("="*70)
     
     # Find duplicates
-    duplicates = find_duplicates(data_dir, similarity_threshold, hash_method, recursive)
-    
+    duplicates, scanned = find_duplicates(data_dir, similarity_threshold, hash_method, recursive,
+                                          return_count=True)
+
     if not duplicates:
         print(f"\n✅ {_('dedup_no_duplicates')}")
-        return {'total_images': 0, 'duplicate_groups': 0, 'duplicates_found': 0}
+        return {'total_images': scanned, 'duplicate_groups': 0, 'duplicates_found': 0}
     
     print(f"\n🔍 {_('dedup_found_groups', count=len(duplicates))}")
     
@@ -156,7 +161,7 @@ def deduplicate_dataset(data_dir, similarity_threshold=5, hash_method='phash',
         print(f"   vogel-trainer deduplicate {data_dir} --mode delete")
         
         return {
-            'total_images': len(duplicates) + total_duplicates,
+            'total_images': scanned,
             'duplicate_groups': len(duplicates),
             'duplicates_found': total_duplicates
         }
@@ -189,8 +194,7 @@ def deduplicate_dataset(data_dir, similarity_threshold=5, hash_method='phash',
                     print(f"   ❌ Deleted: {dup_path.name}")
                 elif mode == 'move':
                     # Preserve directory structure
-                    rel_path = dup_path.relative_to(data_dir)
-                    target_path = duplicates_dir / rel_path
+                    target_path = unique_path(duplicates_dir / dup_path.relative_to(data_dir))
                     target_path.parent.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(dup_path), str(target_path))
                     moved_count += 1
@@ -206,7 +210,7 @@ def deduplicate_dataset(data_dir, similarity_threshold=5, hash_method='phash',
     print("="*70)
     
     return {
-        'total_images': len(duplicates) + total_duplicates,
+        'total_images': scanned,
         'duplicate_groups': len(duplicates),
         'duplicates_found': total_duplicates,
         'deleted': deleted_count if mode == 'delete' else 0,
@@ -261,6 +265,7 @@ def check_image_quality(image_path, blur_threshold=100.0, min_resolution=50, min
         }
     """
     issues = []
+    issue_codes = []
     result = {
         'is_valid': True,
         'issues': [],
@@ -275,56 +280,77 @@ def check_image_quality(image_path, blur_threshold=100.0, min_resolution=50, min
         filesize = image_path.stat().st_size
         result['filesize'] = filesize
         if filesize < min_filesize:
+            issue_codes.append('filesize')
             issues.append(_('quality_filesize_too_small', size=filesize, min_size=min_filesize))
         
         # Try to open image (check readability)
         try:
-            img_pil = Image.open(image_path)
-            width, height = img_pil.size
+            with Image.open(image_path) as img_pil:
+                width, height = img_pil.size
             result['resolution'] = (width, height)
-            
+
             # Check resolution
             if width < min_resolution or height < min_resolution:
+                issue_codes.append('resolution')
                 issues.append(_('quality_resolution_too_small', width=width, height=height, min_res=min_resolution))
-            
-            # Check blur with OpenCV
-            img_cv = cv2.imread(str(image_path))
+
+            # Check blur with OpenCV (keep alpha: transparent areas must not count as black)
+            img_cv = cv2.imread(str(image_path), cv2.IMREAD_UNCHANGED)
             if img_cv is not None:
-                gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+                visible = None
+                if img_cv.ndim == 2:
+                    gray = img_cv
+                elif img_cv.shape[2] == 4:
+                    alpha = img_cv[:, :, 3:4].astype(np.float32) / 255.0
+                    bgr = (img_cv[:, :, :3] * alpha + np.array(INFERENCE_BACKGROUND) * (1 - alpha))
+                    gray = cv2.cvtColor(bgr.astype(np.uint8), cv2.COLOR_BGR2GRAY)
+                    visible = img_cv[:, :, 3] > 10
+                else:
+                    gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+                if gray.dtype != np.uint8:
+                    gray = cv2.convertScaleAbs(gray, alpha=255.0 / max(1, int(gray.max())))
                 laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
                 result['blur_score'] = laplacian_var
                 
                 if laplacian_var < blur_threshold:
+                    issue_codes.append('blurry')
                     issues.append(_('quality_image_blurry', score=laplacian_var, threshold=blur_threshold))
                 
                 # Check brightness/contrast if requested
                 if check_brightness:
-                    mean_brightness = np.mean(gray)
+                    pixels = gray[visible] if visible is not None and visible.any() else gray
+                    mean_brightness = float(np.mean(pixels))
                     result['brightness'] = mean_brightness
                     
                     # Too dark (mean < 30)
                     if mean_brightness < 30:
+                        issue_codes.append('too_dark')
                         issues.append(_('quality_image_too_dark', brightness=mean_brightness))
                     # Too bright/overexposed (mean > 225)
                     elif mean_brightness > 225:
+                        issue_codes.append('too_bright')
                         issues.append(_('quality_image_too_bright', brightness=mean_brightness))
             else:
+                issue_codes.append('unreadable')
                 issues.append(_('quality_cannot_read_opencv'))
                 
         except Exception as e:
+            issue_codes.append('unreadable')
             issues.append(_('quality_cannot_open_image', error=str(e)))
     
     except Exception as e:
+        issue_codes.append('file_error')
         issues.append(_('quality_file_error', error=str(e)))
     
     result['issues'] = issues
+    result['issue_codes'] = issue_codes
     result['is_valid'] = len(issues) == 0
     
     return result
 
 
-def find_low_quality_images(data_dir, blur_threshold=100.0, min_resolution=50, min_filesize=1024, 
-                           check_brightness=False, recursive=True):
+def find_low_quality_images(data_dir, blur_threshold=100.0, min_resolution=50, min_filesize=1024,
+                            check_brightness=False, recursive=True, return_count=False):
     """
     Find low-quality images in a directory.
     
@@ -342,15 +368,8 @@ def find_low_quality_images(data_dir, blur_threshold=100.0, min_resolution=50, m
     data_dir = Path(data_dir)
     low_quality = {}
     
-    # Find all image files
-    pattern = "**/*" if recursive else "*"
-    image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
-    
-    image_files = []
-    for ext in image_extensions:
-        image_files.extend(data_dir.glob(f"{pattern}{ext}"))
-        image_files.extend(data_dir.glob(f"{pattern}{ext.upper()}"))
-    
+    image_files = find_images(data_dir, recursive=recursive)
+
     print(f"🔍 {_('quality_scanning', count=len(image_files))}")
     print("="*70)
     
@@ -368,7 +387,9 @@ def find_low_quality_images(data_dir, blur_threshold=100.0, min_resolution=50, m
         
         if not quality_result['is_valid']:
             low_quality[img_path] = quality_result
-    
+
+    if return_count:
+        return low_quality, len(image_files)
     return low_quality
 
 
@@ -403,13 +424,14 @@ def quality_check_dataset(data_dir, blur_threshold=100.0, min_resolution=50, min
     print("="*70)
     
     # Find low-quality images
-    low_quality = find_low_quality_images(
+    low_quality, total_checked = find_low_quality_images(
         data_dir,
         blur_threshold=blur_threshold,
         min_resolution=min_resolution,
         min_filesize=min_filesize,
         check_brightness=check_brightness,
-        recursive=recursive
+        recursive=recursive,
+        return_count=True,
     )
     
     print("="*70)
@@ -420,7 +442,7 @@ def quality_check_dataset(data_dir, blur_threshold=100.0, min_resolution=50, min
         print(f"\n✅ {_('quality_no_issues')}")
         print("="*70)
         return {
-            'total_checked': 0,
+            'total_checked': total_checked,
             'low_quality_found': 0,
             'deleted': 0,
             'moved': 0
@@ -429,10 +451,8 @@ def quality_check_dataset(data_dir, blur_threshold=100.0, min_resolution=50, min
     # Group by issue type
     issue_counts = defaultdict(int)
     for result in low_quality.values():
-        for issue in result['issues']:
-            # Extract issue type (first part before ':')
-            issue_type = issue.split(':')[0] if ':' in issue else issue
-            issue_counts[issue_type] += 1
+        for code in set(result['issue_codes']):
+            issue_counts[code] += 1
     
     print(f"\n   {_('quality_issues_breakdown')}:")
     for issue_type, count in sorted(issue_counts.items(), key=lambda x: x[1], reverse=True):
@@ -507,7 +527,7 @@ def quality_check_dataset(data_dir, blur_threshold=100.0, min_resolution=50, min
     print("="*70)
     
     return {
-        'total_checked': len(low_quality),
+        'total_checked': total_checked,
         'low_quality_found': len(low_quality),
         'deleted': deleted_count,
         'moved': moved_count

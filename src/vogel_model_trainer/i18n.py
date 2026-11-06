@@ -4,7 +4,6 @@ Provides translations for command-line output
 """
 
 import os
-import locale
 
 # Available translations
 TRANSLATIONS = {
@@ -105,10 +104,10 @@ TRANSLATIONS = {
         'classify_sort_progress': 'Sorting images',
         'classify_file_error': '   ⚠️  Error processing {path}: {error}',
         'classify_sorting_complete': '   ✅ Images sorted to: {path}',
-        'classify_deleting_source': '\n🗑️  Deleting source directory: {path}',
-        'classify_source_deleted': '   ✅ Source directory deleted',
+        'classify_deleting_source': '\n🗑️  Deleting sorted source images in: {path}',
+        'classify_source_deleted': '   ✅ Source directory cleaned up',
         'classify_delete_error': '   ⚠️  Error deleting source: {error}',
-        'classify_delete_warning': '⚠️  WARNING: Source directory will be PERMANENTLY deleted after processing!',
+        'classify_delete_warning': '⚠️  WARNING: Successfully sorted source images will be PERMANENTLY deleted after processing!',
         'classify_delete_confirm': 'Continue? [y/N]: ',
         'classify_cancelled': '❌ Operation cancelled by user',
         'classify_statistics_header': 'Classification Statistics',
@@ -239,8 +238,27 @@ TRANSLATIONS = {
         
         # Logging
         'log_file': '📝 Log file: {path}',
-        'log_permission_denied': '⚠️  WARNING: No write permission for /var/log/vogel-kamera-linux/',
-        'log_permission_hint': 'Run with sudo or change permissions:',
+        # Review fixes (v0.1.29)
+        'train_no_validation_split': 'No validation split found in {path} (expected a val/ folder next to train/)',
+        'train_species_mismatch_error': 'Species mismatch - please check the directory structure!',
+        'train_stopped_early': '\n⏹️  Training stopped early by user - the current model state was saved.',
+        'images_limited': '   ✂️  {species}: using {after} of {before} images ({skipped} not used, source files kept)',
+        'total_limited': '\n📊 Images not used because of --max-images-per-class: {count} (no files deleted)',
+        'organize_species_empty': '⚠️  {species}: no images found, skipping...',
+        'organize_single_session_fallback': '   ⚠️  {species}: only one video/session - falling back to per-image split (val may contain near-duplicates of train)',
+        'organize_split_mode': '   🔀 Split mode: {mode} (seed {seed})',
+        'organize_max_images': '   🔢 Max images per class: {max}',
+        'organize_tolerance': '   ⚖️  Class balance tolerance: {tolerance}%',
+        'organize_cleaning_output': '🧹 Removing existing train/ and val/ in {path}',
+        'organize_output_not_empty': '⚠️  {path} already contains train/ or val/ images - old files are kept. Use --clean to start fresh.',
+        'species_threshold_ignored': '   ℹ️  --species-threshold is ignored without --species-model',
+        'blurry_rejected_stats': '   🚫 Rejected as blurry (--skip-blurry): {count}',
+        'progress_unknown_total': '   ⏳ Progress: {current} frames',
+        'classify_delete_requires_sort': '⚠️  --delete-source requires --sort-output - nothing deleted.',
+        'classify_source_partially_deleted': '   ⚠️  {count} file(s) were not sorted and remain in the source directory',
+        'evaluate_uncertain': 'Uncertain (correct species, confidence < {threshold}): {count}',
+        'log_permission_denied': '⚠️  WARNING: No writable log directory found',
+        'log_permission_hint': 'Set VOGEL_LOG_DIR to a writable directory or fix permissions of /var/log/vogel-kamera-linux/',
         
         # Training
         'train_loading_model': '🤖 Loading base model: {model}',
@@ -458,10 +476,10 @@ TRANSLATIONS = {
         'classify_sort_progress': 'Sortiere Bilder',
         'classify_file_error': '   ⚠️  Fehler bei Verarbeitung von {path}: {error}',
         'classify_sorting_complete': '   ✅ Bilder sortiert nach: {path}',
-        'classify_deleting_source': '\n🗑️  Lösche Quell-Verzeichnis: {path}',
-        'classify_source_deleted': '   ✅ Quell-Verzeichnis gelöscht',
+        'classify_deleting_source': '\n🗑️  Lösche sortierte Quellbilder in: {path}',
+        'classify_source_deleted': '   ✅ Quellverzeichnis aufgeräumt',
         'classify_delete_error': '   ⚠️  Fehler beim Löschen der Quelle: {error}',
-        'classify_delete_warning': '⚠️  WARNUNG: Quell-Verzeichnis wird nach Verarbeitung DAUERHAFT gelöscht!',
+        'classify_delete_warning': '⚠️  WARNUNG: Erfolgreich sortierte Quellbilder werden nach der Verarbeitung ENDGÜLTIG gelöscht!',
         'classify_delete_confirm': 'Fortfahren? [j/N]: ',
         'classify_cancelled': '❌ Operation vom Benutzer abgebrochen',
         'classify_statistics_header': 'Klassifizierungs-Statistik',
@@ -497,23 +515,6 @@ TRANSLATIONS = {
         'evaluate_misclassifications_saved': '   ✅ Fehlklassifikationen gespeichert: {path} ({count} Bilder)',
         'evaluate_json_saved': '   ✅ Metriken nach JSON exportiert: {path}',
         'evaluate_complete': '✅ Evaluierung abgeschlossen!',
-        
-        # File processing (NEW)
-        'files_found_header': '📁 {total} Datei(en) zum Verarbeiten gefunden:',
-        'files_videos_count': '   🎬 {count} Video(s)',
-        'files_images_count': '   🖼️  {count} Bild(er)',
-        'files_and_more': '   ... und {count} weitere',
-        'processing_videos_header': '🎬 Verarbeite {count} Video-Datei(en)',
-        'processing_video_item': '📹 Verarbeite Video {idx}/{total}: {name}',
-        'processing_images_header': '🖼️  Verarbeite {count} Bild-Datei(en)',
-        'processing_image_item': '📸 Verarbeite Bild {idx}/{total}: {name}',
-        'convert_mode_header': '🔄 KONVERTIERUNGSMODUS: Verarbeite existierende Vogelbilder',
-        'convert_images_found': '🖼️  {count} Bild(er) zum Konvertieren gefunden',
-        'convert_source_dir': '📁 Quelle: {path}',
-        'convert_target_dir': '📁 Ziel: {path}',
-        'convert_target_directory': '📁 Zielverzeichnis: {path}',
-        'convert_total_processed': '🖼️  Insgesamt verarbeitet: {count}',
-        'convert_quality_report': '📊 Qualitätsbericht',
         # Organization
         'organizing_dataset': '📊 Organisiere Dataset: {path}',
         'output_dir': '📁 Ausgabe-Verzeichnis: {path}',
@@ -608,8 +609,27 @@ TRANSLATIONS = {
         
         # Logging
         'log_file': '📝 Log-Datei: {path}',
-        'log_permission_denied': '⚠️  WARNUNG: Keine Schreibberechtigung für /var/log/vogel-kamera-linux/',
-        'log_permission_hint': 'Mit sudo ausführen oder Berechtigungen ändern:',
+        # Review fixes (v0.1.29)
+        'train_no_validation_split': 'Kein Validierungs-Split in {path} gefunden (erwartet wird ein val/-Ordner neben train/)',
+        'train_species_mismatch_error': 'Arten stimmen nicht überein - bitte Verzeichnisstruktur prüfen!',
+        'train_stopped_early': '\n⏹️  Training vom Benutzer vorzeitig beendet - der aktuelle Modellstand wurde gespeichert.',
+        'images_limited': '   ✂️  {species}: verwende {after} von {before} Bildern ({skipped} nicht verwendet, Quelldateien bleiben erhalten)',
+        'total_limited': '\n📊 Wegen --max-images-per-class nicht verwendete Bilder: {count} (keine Dateien gelöscht)',
+        'organize_species_empty': '⚠️  {species}: Keine Bilder gefunden, überspringe...',
+        'organize_single_session_fallback': '   ⚠️  {species}: nur ein Video/eine Session - Split pro Bild (val kann Beinahe-Duplikate aus train enthalten)',
+        'organize_split_mode': '   🔀 Split-Modus: {mode} (Seed {seed})',
+        'organize_max_images': '   🔢 Max. Bilder pro Klasse: {max}',
+        'organize_tolerance': '   ⚖️  Toleranz Klassenbalance: {tolerance}%',
+        'organize_cleaning_output': '🧹 Entferne vorhandene train/ und val/ in {path}',
+        'organize_output_not_empty': '⚠️  {path} enthält bereits train/- oder val/-Bilder - alte Dateien bleiben erhalten. Mit --clean neu beginnen.',
+        'species_threshold_ignored': '   ℹ️  --species-threshold wird ohne --species-model ignoriert',
+        'blurry_rejected_stats': '   🚫 Als unscharf verworfen (--skip-blurry): {count}',
+        'progress_unknown_total': '   ⏳ Fortschritt: {current} Frames',
+        'classify_delete_requires_sort': '⚠️  --delete-source benötigt --sort-output - nichts gelöscht.',
+        'classify_source_partially_deleted': '   ⚠️  {count} Datei(en) wurden nicht sortiert und bleiben im Quellverzeichnis',
+        'evaluate_uncertain': 'Unsicher (richtige Art, Konfidenz < {threshold}): {count}',
+        'log_permission_denied': '⚠️  WARNUNG: Kein beschreibbares Log-Verzeichnis gefunden',
+        'log_permission_hint': 'VOGEL_LOG_DIR auf ein beschreibbares Verzeichnis setzen oder Rechte von /var/log/vogel-kamera-linux/ anpassen',
         
         # Training
         'train_loading_model': '🤖 Lade Basis-Modell: {model}',
@@ -827,10 +847,10 @@ TRANSLATIONS = {
         'classify_sort_progress': '画像を振り分け中',
         'classify_file_error': '   ⚠️  {path}の処理中にエラー：{error}',
         'classify_sorting_complete': '   ✅ 画像を振り分けました：{path}',
-        'classify_deleting_source': '\n🗑️  ソースディレクトリを削除中：{path}',
-        'classify_source_deleted': '   ✅ ソースディレクトリを削除しました',
+        'classify_deleting_source': '\n🗑️  仕分け済みの元画像を削除中：{path}',
+        'classify_source_deleted': '   ✅ ソースディレクトリを整理しました',
         'classify_delete_error': '   ⚠️  ソース削除中にエラー：{error}',
-        'classify_delete_warning': '⚠️  警告：処理後にソースディレクトリが完全に削除されます！',
+        'classify_delete_warning': '⚠️  警告：仕分けに成功した元画像は処理後に完全に削除されます！',
         'classify_delete_confirm': '続行しますか？ [y/N]: ',
         'classify_cancelled': '❌ ユーザーによって操作がキャンセルされました',
         'classify_statistics_header': '分類統計',
@@ -961,8 +981,27 @@ TRANSLATIONS = {
         
         # Logging
         'log_file': '📝 ログファイル：{path}',
-        'log_permission_denied': '⚠️  警告：/var/log/vogel-kamera-linux/への書き込み権限がありません',
-        'log_permission_hint': 'sudoで実行するか、権限を変更してください：',
+        # Review fixes (v0.1.29)
+        'train_no_validation_split': '{path} に検証分割が見つかりません（train/ の隣に val/ フォルダが必要です）',
+        'train_species_mismatch_error': '種が一致しません - ディレクトリ構造を確認してください！',
+        'train_stopped_early': '\n⏹️  ユーザーによりトレーニングが早期終了しました - 現在のモデル状態を保存しました。',
+        'images_limited': '   ✂️  {species}：{before}枚中{after}枚を使用（{skipped}枚は未使用、元ファイルは保持）',
+        'total_limited': '\n📊 --max-images-per-class により未使用の画像：{count}（ファイルは削除されていません）',
+        'organize_species_empty': '⚠️  {species}：画像が見つかりません、スキップします...',
+        'organize_single_session_fallback': '   ⚠️  {species}：動画/セッションが1つのみ - 画像単位で分割します（val に train のほぼ重複が含まれる可能性があります）',
+        'organize_split_mode': '   🔀 分割モード：{mode}（シード {seed}）',
+        'organize_max_images': '   🔢 クラスごとの最大画像数：{max}',
+        'organize_tolerance': '   ⚖️  クラスバランス許容値：{tolerance}%',
+        'organize_cleaning_output': '🧹 {path} の既存の train/ と val/ を削除中',
+        'organize_output_not_empty': '⚠️  {path} には既に train/ または val/ の画像があります - 古いファイルは保持されます。--clean で新規作成できます。',
+        'species_threshold_ignored': '   ℹ️  --species-model なしでは --species-threshold は無視されます',
+        'blurry_rejected_stats': '   🚫 ぼやけとして除外（--skip-blurry）：{count}',
+        'progress_unknown_total': '   ⏳ 進捗：{current}フレーム',
+        'classify_delete_requires_sort': '⚠️  --delete-source には --sort-output が必要です - 何も削除されていません。',
+        'classify_source_partially_deleted': '   ⚠️  {count}個のファイルは仕分けされず、ソースディレクトリに残っています',
+        'evaluate_uncertain': '不確実（種は正しいが信頼度 < {threshold}）：{count}',
+        'log_permission_denied': '⚠️  警告：書き込み可能なログディレクトリが見つかりません',
+        'log_permission_hint': 'VOGEL_LOG_DIR を書き込み可能なディレクトリに設定するか、/var/log/vogel-kamera-linux/ の権限を変更してください',
         
         # Training
         'train_loading_model': '🤖 ベースモデルを読み込み中：{model}',
@@ -1090,8 +1129,14 @@ _current_lang = 'en'
 
 def detect_language():
     """Detect system language from environment variables."""
-    lang = os.environ.get('LANG', '')
-    
+    # Same precedence as gettext: LANGUAGE, LC_ALL, LC_MESSAGES, LANG
+    lang = ''
+    for var in ('LANGUAGE', 'LC_ALL', 'LC_MESSAGES', 'LANG'):
+        value = os.environ.get(var, '')
+        if value and value not in ('C', 'POSIX'):
+            lang = value.split(':')[0]
+            break
+
     if lang.startswith('de'):
         return 'de'
     elif lang.startswith('ja'):
@@ -1125,7 +1170,7 @@ def get_text(key, **kwargs):
     if kwargs:
         try:
             return translation.format(**kwargs)
-        except KeyError:
+        except (KeyError, IndexError, ValueError):
             return translation
     
     return translation

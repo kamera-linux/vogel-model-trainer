@@ -1,5 +1,4 @@
 """Test basic imports and module structure."""
-import pytest
 
 
 def test_version_import():

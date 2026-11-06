@@ -10,13 +10,13 @@ import csv
 import json
 import warnings
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional
+from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
 import torch
-from PIL import Image
 from transformers import AutoImageProcessor, AutoModelForImageClassification
 from tqdm import tqdm
 from vogel_model_trainer.i18n import _
+from vogel_model_trainer.utils.image import find_images, load_rgb
 
 # Suppress harmless Cholesky decomposition warnings from PyTorch optimizer
 warnings.filterwarnings('ignore', message='.*Cholesky.*')
@@ -64,69 +64,78 @@ def load_model(model_path: str) -> Tuple[AutoModelForImageClassification, AutoIm
 def get_test_images(test_dir: str) -> Dict[str, List[Path]]:
     """
     Get test images organized by species (ground truth from folder structure).
-    
+
     Args:
         test_dir: Directory with species subfolders
-        
+
     Returns:
         Dict mapping species name to list of image paths
     """
     test_path = Path(test_dir).expanduser()
-    
+
     if not test_path.exists():
         raise FileNotFoundError(_('evaluate_test_dir_not_found', path=str(test_path)))
-    
-    image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'}
-    species_images = defaultdict(list)
-    
-    # Iterate through species folders
-    for species_dir in test_path.iterdir():
-        if not species_dir.is_dir():
-            continue
-            
-        species_name = species_dir.name
-        
-        # Find all images in this species folder
-        for img_path in species_dir.iterdir():
-            if img_path.suffix.lower() in image_extensions:
-                species_images[species_name].append(img_path)
-    
-    return dict(species_images)
+
+    species_images = {}
+    for species_dir in sorted(test_path.iterdir()):
+        if species_dir.is_dir():
+            images = find_images(species_dir, recursive=False)
+            if images:
+                species_images[species_dir.name] = images
+    return species_images
 
 
-def classify_image(image_path: Path, model, processor) -> Tuple[str, float]:
+def classify_image(image_path: Path, model, processor) -> Tuple[Optional[str], float]:
     """
     Classify a single image.
-    
-    Args:
-        image_path: Path to image
-        model: Trained model
-        processor: Image processor
-        
+
     Returns:
-        Tuple of (predicted_species, confidence)
+        Tuple of (predicted_species, confidence); (None, 0.0) on error
     """
     try:
-        image = Image.open(image_path).convert('RGB')
-        inputs = processor(images=image, return_tensors="pt")
-        
-        # Move to same device as model
+        inputs = processor(images=load_rgb(image_path), return_tensors="pt")
         device = next(model.parameters()).device
         inputs = {k: v.to(device) for k, v in inputs.items()}
-        
         with torch.no_grad():
-            outputs = model(**inputs)
-            probabilities = torch.nn.functional.softmax(outputs.logits, dim=-1)
+            probabilities = torch.nn.functional.softmax(model(**inputs).logits, dim=-1)
             confidence, predicted_idx = torch.max(probabilities, 1)
-            
-        predicted_species = model.config.id2label[predicted_idx.item()]
-        confidence_value = confidence.item()
-        
-        return predicted_species, confidence_value
-        
+        return model.config.id2label[predicted_idx.item()], confidence.item()
     except Exception as e:
         print(_('evaluate_image_error', path=str(image_path), error=str(e)))
-        return "error", 0.0
+        return None, 0.0
+
+
+def classify_images_batched(image_paths: List[Path], model, processor,
+                            batch_size: int = 32) -> List[Tuple[Optional[str], float]]:
+    """Classify images in batches; returns (species, confidence) per input, (None, 0.0) on error."""
+    device = next(model.parameters()).device
+    batch_size = max(1, int(batch_size))
+    predictions: List[Tuple[Optional[str], float]] = []
+
+    for start in range(0, len(image_paths), batch_size):
+        chunk = image_paths[start:start + batch_size]
+        images, ok_idx = [], []
+        chunk_preds: List[Tuple[Optional[str], float]] = [(None, 0.0)] * len(chunk)
+        for i, path in enumerate(chunk):
+            try:
+                images.append(load_rgb(path))
+                ok_idx.append(i)
+            except Exception as e:
+                print(_('evaluate_image_error', path=str(path), error=str(e)))
+        if images:
+            try:
+                inputs = processor(images=images, return_tensors="pt")
+                inputs = {k: v.to(device) for k, v in inputs.items()}
+                with torch.no_grad():
+                    probs = torch.nn.functional.softmax(model(**inputs).logits, dim=-1)
+                    conf, idx = torch.max(probs, 1)
+                for i, c, k in zip(ok_idx, conf.tolist(), idx.tolist()):
+                    chunk_preds[i] = (model.config.id2label[k], c)
+            except Exception:
+                for i in ok_idx:
+                    chunk_preds[i] = classify_image(chunk[i], model, processor)
+        predictions.extend(chunk_preds)
+    return predictions
 
 
 def calculate_metrics(confusion_matrix: Dict[str, Dict[str, int]], 
@@ -256,7 +265,7 @@ def export_misclassifications(misclassifications: List[Dict],
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
     with open(output_path, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=['image', 'actual', 'predicted', 'confidence'])
+        writer = csv.DictWriter(f, fieldnames=['image', 'actual', 'predicted', 'confidence', 'reason'])
         writer.writeheader()
         writer.writerows(misclassifications)
     
@@ -291,110 +300,129 @@ def export_metrics_json(metrics: Dict, confusion_matrix: Dict,
     print(_('evaluate_json_saved', path=str(output_path)))
 
 
-def evaluate_model(model_path: str, 
-                  test_dir: str,
-                  export_misclassified: Optional[str] = None,
-                  export_json: Optional[str] = None,
-                  min_confidence: float = 0.0):
+def evaluate_model(model_path: str,
+                   test_dir: str,
+                   export_misclassified: Optional[str] = None,
+                   export_json: Optional[str] = None,
+                   min_confidence: float = 0.0,
+                   batch_size: int = 32):
     """
     Evaluate model on test dataset.
-    
+
+    Predictions below ``min_confidence`` count as "uncertain": they are not
+    correct, but they are reported separately from wrong-species errors.
+    The confusion matrix always shows the raw top-1 predictions.
+
     Args:
         model_path: Path to trained model or Hugging Face model ID
         test_dir: Directory with test images (organized by species folders)
-        export_misclassified: Optional CSV file for misclassifications
+        export_misclassified: Optional CSV file for misclassified/uncertain images
         export_json: Optional JSON file for all metrics
-        min_confidence: Minimum confidence threshold for evaluation
+        min_confidence: Minimum confidence for a prediction to count as correct
+        batch_size: Inference batch size
+
+    Returns:
+        dict with overall accuracy, per-species metrics and counts (None if no test images)
     """
-    print("="*80)
+    if not 0.0 <= min_confidence <= 1.0:
+        raise ValueError(f"min_confidence must be between 0 and 1, got {min_confidence}")
+
+    print("=" * 80)
     print(_('evaluate_header'))
-    print("="*80)
+    print("=" * 80)
     print()
-    
-    # Load model
+
     model, processor, model_species = load_model(model_path)
-    
-    # Get test images
     test_images = get_test_images(test_dir)
-    
+
     if not test_images:
         print(_('evaluate_no_test_images', path=test_dir))
-        return
-    
-    species_list = sorted(test_images.keys())
-    
-    # Check if species match
-    model_species_set = set(model_species)
-    test_species_set = set(species_list)
-    
-    if model_species_set != test_species_set:
+        return None
+
+    test_species = sorted(test_images.keys())
+    if set(model_species) != set(test_species):
         print(_('evaluate_species_mismatch'))
-        print(f"  {_('evaluate_model_species')}: {sorted(model_species_set)}")
-        print(f"  {_('evaluate_test_species')}: {sorted(test_species_set)}")
+        print(f"  {_('evaluate_model_species')}: {sorted(set(model_species))}")
+        print(f"  {_('evaluate_test_species')}: {test_species}")
         print()
-    
+
     total_images = sum(len(images) for images in test_images.values())
-    print(_('evaluate_found_images', count=total_images, species=len(species_list)))
-    print(f"  {_('evaluate_species_list')}: {', '.join(species_list)}")
+    print(_('evaluate_found_images', count=total_images, species=len(test_species)))
+    print(f"  {_('evaluate_species_list')}: {', '.join(test_species)}")
     print()
-    
-    # Initialize confusion matrix and tracking
+
     confusion_matrix = defaultdict(lambda: defaultdict(int))
     misclassifications = []
     correct = 0
     total = 0
-    
-    # Evaluate each species
+    wrong = 0
+    uncertain = 0
+
     print(_('evaluate_processing'))
-    for species_name, image_paths in tqdm(test_images.items(), desc=_('evaluate_species_progress')):
-        for img_path in tqdm(image_paths, desc=f"  {species_name}", leave=False):
-            predicted, confidence = classify_image(img_path, model, processor)
-            
-            if predicted == "error":
+    for species_name in tqdm(test_species, desc=_('evaluate_species_progress')):
+        image_paths = test_images[species_name]
+        predictions = classify_images_batched(image_paths, model, processor, batch_size)
+        for img_path, (predicted, confidence) in zip(image_paths, predictions):
+            if predicted is None:
                 continue
-            
-            # Update confusion matrix
+
             confusion_matrix[species_name][predicted] += 1
-            
-            # Track accuracy
             total += 1
-            if predicted == species_name and confidence >= min_confidence:
-                correct += 1
+
+            if predicted != species_name:
+                wrong += 1
+                reason = 'wrong_species'
+            elif confidence < min_confidence:
+                uncertain += 1
+                reason = 'low_confidence'
             else:
-                # Record misclassification
-                misclassifications.append({
-                    'image': str(img_path),
-                    'actual': species_name,
-                    'predicted': predicted,
-                    'confidence': f"{confidence:.4f}"
-                })
-    
-    # Calculate overall accuracy
+                correct += 1
+                continue
+
+            misclassifications.append({
+                'image': str(img_path),
+                'actual': species_name,
+                'predicted': predicted,
+                'confidence': f"{confidence:.4f}",
+                'reason': reason,
+            })
+
     overall_accuracy = correct / total if total > 0 else 0.0
-    
-    # Calculate per-species metrics
+
+    # Include species the model predicted that have no test folder (they produce false positives)
+    predicted_species = {p for row in confusion_matrix.values() for p in row}
+    species_list = sorted(set(test_species) | predicted_species)
     metrics = calculate_metrics(confusion_matrix, species_list)
-    
-    # Print results
+
     print()
     print_confusion_matrix(confusion_matrix, species_list)
     print_metrics(metrics, species_list)
-    
-    print("="*80)
-    print(_('evaluate_overall_accuracy', accuracy=overall_accuracy*100))
+
+    print("=" * 80)
+    print(_('evaluate_overall_accuracy', accuracy=overall_accuracy * 100))
     print(f"{_('evaluate_correct')}: {correct}/{total}")
-    print(f"{_('evaluate_misclassified')}: {len(misclassifications)}")
-    print("="*80)
+    print(f"{_('evaluate_misclassified')}: {wrong}")
+    if min_confidence > 0:
+        print(_('evaluate_uncertain', count=uncertain, threshold=min_confidence))
+    print("=" * 80)
     print()
-    
-    # Export results
+
     if export_misclassified:
         export_misclassifications(misclassifications, export_misclassified)
-    
+
     if export_json:
-        export_metrics_json(metrics, dict(confusion_matrix), overall_accuracy, export_json)
-    
+        export_metrics_json(metrics, {k: dict(v) for k, v in confusion_matrix.items()},
+                            overall_accuracy, export_json)
+
     print(_('evaluate_complete'))
+    return {
+        'overall_accuracy': overall_accuracy,
+        'metrics': metrics,
+        'correct': correct,
+        'wrong': wrong,
+        'uncertain': uncertain,
+        'total': total,
+    }
 
 
 if __name__ == "__main__":
