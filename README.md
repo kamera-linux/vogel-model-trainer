@@ -301,7 +301,7 @@ vogel-trainer extract ~/Videos/ \
 - `--min-edge-quality`: **NEW v0.1.9** - Minimum edge quality (Sobel gradient, typical: 50-150)
 - `--save-quality-report`: **NEW v0.1.9** - Generate detailed quality statistics report
 - `--remove-background`: **🧪 EXPERIMENTAL v0.1.11** - Remove background using rembg AI
-- `--crop-padding`: **NEW v0.1.15** - Pixels to expand mask around bird (keeps details like feet/beak)
+- `--crop-padding`: Grow (positive) or shrink (negative) the detection box by this **percentage**; with `--remove-background` positive values also expand the mask by N pixels (keeps feet/beak). Same behavior for videos and images
 - `--bg-color [white|black|gray]`: **🧪 EXPERIMENTAL v0.1.11** - Background color (default: gray)
 - `--bg-model [u2net|u2netp|isnet-general-use]`: **🧪 EXPERIMENTAL v0.1.11** - AI model for background removal (default: u2net)
 - `--bg-transparent`: **NEW v0.1.14** - Create PNG with transparent background (default: disabled, gray background)
@@ -309,7 +309,7 @@ vogel-trainer extract ~/Videos/ \
 - `--bg-fill-black`: **NEW v0.1.14** - Make black padding areas transparent (requires --bg-transparent, preserves black feathers)
 - `--no-bg-fill-black`: **NEW v0.1.14** - Keep black padding areas opaque (default)
 - `--recursive, -r`: Search directories recursively
-- `--log`: Save console output to log file (`/var/log/vogel-kamera-linux/YYYY/KWXX/`)
+- `--log`: Save console output to log file (`/var/log/vogel-kamera-linux/YYYY/KWXX/`; falls back to `~/.local/state/vogel-model-trainer/logs/` if not writable, override with `VOGEL_LOG_DIR`)
 
 **Advanced Filtering Examples:**
 
@@ -558,8 +558,11 @@ vogel-trainer organize ~/training-data/ -o ~/organized-data/ \
 ```
 
 **Class Balance Features:**
-- `--max-images-per-class N`: Limit to N images per class, delete excess
+- `--max-images-per-class N`: Use at most N images per class (random selection; **source files are kept**)
 - `--tolerance N`: Maximum allowed imbalance % (default: 15)
+- `--split-by session|image`: `session` (default) keeps all frames of one video in the same split so validation is not inflated by near-identical frames
+- `--seed N`: Seed for a reproducible split (default: 42)
+- `--clean`: Remove existing `train/` and `val/` in the output directory first
   - < 10%: ✅ Perfect
   - 10-15%: ⚠️ Warning
   - > 15%: ❌ Error with recommendations
@@ -903,7 +906,7 @@ vogel-trainer classify --species-model ~/models/final/ ~/images/ \
 - `--top-k, -k`: Number of top predictions to report (1-5, default: 1)
 - `--batch-size, -b`: Processing batch size (default: 32)
 - `--move`: Move files instead of copying (saves disk space)
-- `--delete-source`: ⚠️ Delete source directory after processing
+- `--delete-source`: ⚠️ Delete successfully sorted source images after processing (requires `--sort-output`; unclassified files and a sort output inside the input folder are kept)
 - `--force, -f`: Skip confirmation prompts (for automation)
 - `--dry-run`: Simulate operations without actual file changes
 - `--no-recursive`: Only process top-level images
@@ -931,7 +934,7 @@ sorted-birds/
 - ✅ **Dataset Quality**: Check existing datasets for misclassifications
 
 **Safety Notes:**
-- ⚠️ `--delete-source` deletes the source directory **PERMANENTLY**
+- ⚠️ `--delete-source` deletes sorted source images **PERMANENTLY**
 - 💡 Always run `--dry-run` first to preview
 - 📦 Create backups before using `--delete-source`
 - ✅ `--move` is safer (keeps originals in sorted/)

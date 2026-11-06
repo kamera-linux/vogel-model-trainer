@@ -9,12 +9,12 @@ including CSV export, auto-sorting, and detailed statistics.
 import csv
 import shutil
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional
+from typing import Dict, List, Optional, Tuple
 import torch
-from PIL import Image
 from transformers import AutoImageProcessor, AutoModelForImageClassification
 from tqdm import tqdm
 from vogel_model_trainer.i18n import _
+from vogel_model_trainer.utils.image import find_images, load_rgb, unique_path
 
 
 def load_classifier(model_path: str) -> Tuple[AutoModelForImageClassification, AutoImageProcessor, List[str]]:
@@ -61,105 +61,90 @@ def load_classifier(model_path: str) -> Tuple[AutoModelForImageClassification, A
     return model, processor, species
 
 
-def get_image_files(input_dir: str, recursive: bool = True) -> List[Path]:
+def get_image_files(input_dir: str, recursive: bool = True, exclude_dirs=()) -> List[Path]:
     """
     Get all image files from directory.
-    
+
     Args:
         input_dir: Input directory path
         recursive: Search recursively
-        
+        exclude_dirs: Directories to skip (e.g. a sort output inside input_dir)
+
     Returns:
-        List of image file paths
+        Sorted list of unique image file paths
     """
     input_path = Path(input_dir).expanduser()
-    
+
     if not input_path.exists():
         raise FileNotFoundError(_('classify_input_not_found', path=str(input_path)))
-    
-    image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'}
-    
-    if recursive:
-        image_files = []
-        for ext in image_extensions:
-            image_files.extend(input_path.rglob(f'*{ext}'))
-            image_files.extend(input_path.rglob(f'*{ext.upper()}'))
-    else:
-        image_files = []
-        for ext in image_extensions:
-            image_files.extend(input_path.glob(f'*{ext}'))
-            image_files.extend(input_path.glob(f'*{ext.upper()}'))
-    
-    return sorted(image_files)
+
+    return find_images(input_path, recursive=recursive, exclude_dirs=exclude_dirs, skip_reserved=False)
+
+
+def _top_k(probs: torch.Tensor, model, top_k: int) -> List[Tuple[str, float]]:
+    top_probs, top_indices = torch.topk(probs, k=min(top_k, probs.shape[-1]))
+    return [(model.config.id2label[int(idx)], float(prob)) for prob, idx in zip(top_probs, top_indices)]
 
 
 def classify_image(image_path: Path, model, processor, device, top_k: int = 1) -> List[Tuple[str, float]]:
     """
-    Classify a single image.
-    
-    Args:
-        image_path: Path to image file
-        model: Trained model
-        processor: Image processor
-        device: Torch device
-        top_k: Number of top predictions to return
-        
+    Classify a single image (transparent images are placed on the gray inference background).
+
     Returns:
-        List of (species, confidence) tuples
+        List of (species, confidence) tuples, empty on error
     """
     try:
-        # Load and preprocess image
-        image = Image.open(image_path).convert('RGB')
-        inputs = processor(images=image, return_tensors="pt")
+        inputs = processor(images=load_rgb(image_path), return_tensors="pt")
         inputs = {k: v.to(device) for k, v in inputs.items()}
-        
-        # Run inference
         with torch.no_grad():
-            outputs = model(**inputs)
-            logits = outputs.logits
-            probs = torch.nn.functional.softmax(logits, dim=-1)
-        
-        # Get top-k predictions
-        top_probs, top_indices = torch.topk(probs[0], k=min(top_k, len(probs[0])))
-        
-        results = []
-        for prob, idx in zip(top_probs, top_indices):
-            species = model.config.id2label[idx.item()]
-            confidence = prob.item()
-            results.append((species, confidence))
-        
-        return results
-    
+            probs = torch.nn.functional.softmax(model(**inputs).logits, dim=-1)
+        return _top_k(probs[0], model, top_k)
     except Exception as e:
         print(_('classify_image_error', path=str(image_path), error=str(e)))
         return []
 
 
-def classify_batch(image_files: List[Path], model, processor, top_k: int = 1, 
+def classify_batch(image_files: List[Path], model, processor, top_k: int = 1,
                    batch_size: int = 32) -> Dict[Path, List[Tuple[str, float]]]:
     """
-    Classify batch of images.
-    
-    Args:
-        image_files: List of image paths
-        model: Trained model
-        processor: Image processor
-        top_k: Number of top predictions per image
-        batch_size: Processing batch size
-        
+    Classify images in batches of ``batch_size``.
+
     Returns:
-        Dictionary mapping image paths to prediction lists
+        Dictionary mapping image paths to prediction lists (unreadable images are omitted)
     """
     device = next(model.parameters()).device
+    batch_size = max(1, int(batch_size))
     results = {}
-    
+
     print(_('classify_processing_header', total=len(image_files)))
-    
-    for image_path in tqdm(image_files, desc=_('classify_progress')):
-        predictions = classify_image(image_path, model, processor, device, top_k)
-        if predictions:
-            results[image_path] = predictions
-    
+
+    with tqdm(total=len(image_files), desc=_('classify_progress')) as progress:
+        for start in range(0, len(image_files), batch_size):
+            chunk = image_files[start:start + batch_size]
+            images, paths = [], []
+            for image_path in chunk:
+                try:
+                    images.append(load_rgb(image_path))
+                    paths.append(image_path)
+                except Exception as e:
+                    print(_('classify_image_error', path=str(image_path), error=str(e)))
+
+            if images:
+                try:
+                    inputs = processor(images=images, return_tensors="pt")
+                    inputs = {k: v.to(device) for k, v in inputs.items()}
+                    with torch.no_grad():
+                        probs = torch.nn.functional.softmax(model(**inputs).logits, dim=-1)
+                    for image_path, row in zip(paths, probs):
+                        results[image_path] = _top_k(row, model, top_k)
+                except Exception:
+                    # Fall back to single images so one bad file does not lose the batch
+                    for image_path in paths:
+                        predictions = classify_image(image_path, model, processor, device, top_k)
+                        if predictions:
+                            results[image_path] = predictions
+            progress.update(len(chunk))
+
     return results
 
 
@@ -206,11 +191,12 @@ def export_csv(results: Dict[Path, List[Tuple[str, float]]], csv_path: str, top_
 
 
 def sort_images(results: Dict[Path, List[Tuple[str, float]]], output_dir: str,
-                min_confidence: float = 0.0, move: bool = False, 
-                unknown_folder: str = "unknown", dry_run: bool = False) -> Dict[str, int]:
+                min_confidence: float = 0.0, move: bool = False,
+                unknown_folder: str = "unknown", dry_run: bool = False,
+                return_processed: bool = False):
     """
     Sort images into species folders based on classification results.
-    
+
     Args:
         results: Classification results dictionary
         output_dir: Output directory for sorted images
@@ -218,62 +204,98 @@ def sort_images(results: Dict[Path, List[Tuple[str, float]]], output_dir: str,
         move: Move instead of copy
         unknown_folder: Folder name for low-confidence images
         dry_run: Only simulate, don't actually move/copy files
-        
+        return_processed: Also return the list of source files that were copied/moved
+
     Returns:
         Dictionary with statistics per species
+        (and the list of successfully processed source paths if ``return_processed``)
     """
     output_path = Path(output_dir).expanduser()
     stats = {}
+    processed = []
     unknown_count = 0
-    
+
     action = _('classify_moving') if move else _('classify_copying')
     mode = _('classify_dry_run_mode') if dry_run else ''
-    
+
     print(_('classify_sorting_header', action=action, mode=mode))
-    
+
     for image_path, predictions in tqdm(results.items(), desc=_('classify_sort_progress')):
         if not predictions:
             continue
-        
+
         top_species, top_confidence = predictions[0]
-        
-        # Check confidence threshold
+
         if top_confidence < min_confidence:
             target_dir = output_path / unknown_folder
             unknown_count += 1
         else:
             target_dir = output_path / top_species
             stats[top_species] = stats.get(top_species, 0) + 1
-        
-        # Create target directory
-        if not dry_run:
-            target_dir.mkdir(parents=True, exist_ok=True)
-        
-        target_path = target_dir / image_path.name
-        
-        # Handle filename conflicts
-        counter = 1
-        while target_path.exists() and not dry_run:
-            stem = image_path.stem
-            suffix = image_path.suffix
-            target_path = target_dir / f"{stem}_{counter}{suffix}"
-            counter += 1
-        
-        # Move or copy file
-        if not dry_run:
-            try:
-                if move:
-                    shutil.move(str(image_path), str(target_path))
-                else:
-                    shutil.copy2(str(image_path), str(target_path))
-            except Exception as e:
-                print(_('classify_file_error', path=str(image_path), error=str(e)))
-    
-    # Add unknown count to stats
+
+        if dry_run:
+            processed.append(image_path)
+            continue
+
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_path = unique_path(target_dir / image_path.name)
+        try:
+            if move:
+                shutil.move(str(image_path), str(target_path))
+            else:
+                shutil.copy2(str(image_path), str(target_path))
+            processed.append(image_path)
+        except Exception as e:
+            print(_('classify_file_error', path=str(image_path), error=str(e)))
+
     if unknown_count > 0:
         stats[unknown_folder] = unknown_count
-    
+
+    if return_processed:
+        return stats, processed
     return stats
+
+
+def _remove_empty_dirs(root: Path, keep: Optional[Path] = None) -> None:
+    """Remove empty directories below ``root`` (bottom-up), including root itself."""
+    keep = keep.resolve() if keep else None
+    for directory in sorted((p for p in root.rglob('*') if p.is_dir()), key=lambda p: len(p.parts), reverse=True):
+        if keep and (directory.resolve() == keep or keep in directory.resolve().parents):
+            continue
+        try:
+            directory.rmdir()
+        except OSError:
+            pass  # not empty
+    try:
+        root.rmdir()
+    except OSError:
+        pass
+
+
+def delete_processed_sources(processed: List[Path], input_dir: Path, sort_output: Path, moved: bool) -> int:
+    """
+    Delete source images that were successfully sorted, then remove empty folders.
+
+    Files that could not be classified or copied are kept, and nothing inside
+    ``sort_output`` is touched (even if it lies inside ``input_dir``).
+
+    Returns:
+        Number of source files that remain in input_dir
+    """
+    sort_output = sort_output.resolve()
+    if not moved:
+        for path in processed:
+            resolved = path.resolve()
+            if sort_output in resolved.parents:
+                continue
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+    _remove_empty_dirs(input_dir, keep=sort_output)
+    if not input_dir.exists():
+        return 0
+    return sum(1 for p in input_dir.rglob('*') if p.is_file() and sort_output not in p.resolve().parents)
 
 
 def print_statistics(results: Dict[Path, List[Tuple[str, float]]], 
@@ -358,7 +380,7 @@ def classify_images(model_path: str, input_dir: str,
         raise ValueError(_('classify_invalid_confidence', conf=min_confidence))
     
     # Confirmation for delete_source
-    if delete_source and not force and not dry_run:
+    if delete_source and sort_output and not force and not dry_run:
         print("\n" + "="*60)
         print(_('classify_delete_warning'))
         print("="*60)
@@ -372,8 +394,9 @@ def classify_images(model_path: str, input_dir: str,
     
     print(_('classify_detected_species', species=', '.join(species)))
     
-    # Get image files
-    image_files = get_image_files(input_dir, recursive)
+    # Get image files (never re-classify a sort output that lies inside the input folder)
+    exclude = [Path(sort_output).expanduser()] if sort_output else []
+    image_files = get_image_files(input_dir, recursive, exclude_dirs=exclude)
     
     if not image_files:
         print(_('classify_no_images', path=input_dir))
@@ -390,23 +413,29 @@ def classify_images(model_path: str, input_dir: str,
     
     # Sort images if requested
     sort_stats = None
+    processed = []
     if sort_output:
-        sort_stats = sort_images(results, sort_output, min_confidence, 
-                                 move, "unknown", dry_run)
+        sort_stats, processed = sort_images(results, sort_output, min_confidence,
+                                            move, "unknown", dry_run, return_processed=True)
         
         if not dry_run:
             print(_('classify_sorting_complete', path=sort_output))
     
-    # Delete source directory if requested
-    if delete_source and not dry_run and sort_output:
+    # Delete sorted source files if requested (unprocessed files are kept)
+    if delete_source and not sort_output:
+        print(_('classify_delete_requires_sort'))
+    elif delete_source and not dry_run:
         input_path = Path(input_dir).expanduser()
         print(_('classify_deleting_source', path=str(input_path)))
         try:
-            shutil.rmtree(input_path)
-            print(_('classify_source_deleted'))
+            remaining = delete_processed_sources(processed, input_path, Path(sort_output).expanduser(), move)
+            if remaining:
+                print(_('classify_source_partially_deleted', count=remaining))
+            else:
+                print(_('classify_source_deleted'))
         except Exception as e:
             print(_('classify_delete_error', error=str(e)))
-    
+
     # Print statistics
     print_statistics(results, sort_stats)
     

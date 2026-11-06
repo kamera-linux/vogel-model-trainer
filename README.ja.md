@@ -299,7 +299,7 @@ vogel-trainer extract ~/Videos/ \
 - `--min-edge-quality`: **NEW v0.1.9** - 最小エッジ品質（ソーベル勾配、一般的に50-150）
 - `--save-quality-report`: **NEW v0.1.9** - 詳細な品質レポートを生成
 - `--remove-background`: **🧪 実験的 v0.1.11** - AIで背景を除去(rembg)
-- `--crop-padding`: **NEW v0.1.15** - 鳥の周りのマスクを拡張するピクセル数（足/くちばしなどの詳細を保持）
+- `--crop-padding`: 検出ボックスをこの**パーセント**だけ拡大（正）または縮小（負）。`--remove-background` 使用時は正の値でマスクもNピクセル拡張（足/くちばしを保持）。動画と画像で同じ動作
 - `--bg-color [white|black|gray]`: **🧪 実験的 v0.1.11** - 背景色（デフォルト: gray）
 - `--bg-model [u2net|u2netp|isnet-general-use]`: **🧪 実験的 v0.1.11** - 背景除去用AIモデル（デフォルト: u2net）
 - `--bg-transparent`: **NEW v0.1.14** - 透明な背景でPNGを作成（デフォルト: 無効、グレー背景）
@@ -309,7 +309,7 @@ vogel-trainer extract ~/Videos/ \
 - `--deduplicate`: 重複/類似画像をスキップ（知覚ハッシュ）
 - `--similarity-threshold`: 重複のための類似度しきい値 - ハミング距離 0-64（デフォルト: 5）
 - `--recursive, -r`: ディレクトリを再帰的に検索
-- `--log`: コンソール出力をログファイルに保存（`/var/log/vogel-kamera-linux/YYYY/KWXX/`）
+- `--log`: コンソール出力をログファイルに保存（`/var/log/vogel-kamera-linux/YYYY/KWXX/`。書き込めない場合は `~/.local/state/vogel-model-trainer/logs/`、`VOGEL_LOG_DIR` で変更可能）
 
 **高度なフィルタリング例:**
 
@@ -474,8 +474,10 @@ vogel-trainer organize ~/training-data/ -o ~/organized-data/ --max-images-per-cl
 ```
 
 **新しいパラメータ:**
-- `--max-images-per-class`: クラスあたりの最大画像数（デフォルト: 制限なし）
-  - この数を超える画像は自動的に削除されます
+- `--max-images-per-class`: クラスあたりの最大画像数（ランダム選択、**元ファイルは削除されません**。デフォルト: 制限なし）
+- `--split-by session|image`: `session`（デフォルト）は同じ動画のフレームを同じ分割に保ち、ほぼ同一のフレームによる検証精度の水増しを防ぎます
+- `--seed`: 再現可能な分割のためのシード（デフォルト: 42）
+- `--clean`: 出力ディレクトリの既存の `train/` と `val/` を先に削除
   - 大規模なクラスのサイズを管理し、データセットのバランスを向上させます
   
 - `--tolerance`: 許容可能なクラス不均衡の割合（デフォルト: 15）
@@ -648,7 +650,7 @@ vogel-trainer classify --species-model ~/models/final/ ~/images/ \
 - `--top-k, -k`: レポートするトップ予測数（1-5、デフォルト: 1）
 - `--batch-size, -b`: 処理バッチサイズ（デフォルト: 32）
 - `--move`: コピーの代わりにファイルを移動（ディスク容量節約）
-- `--delete-source`: ⚠️ 処理後にソースディレクトリを削除
+- `--delete-source`: ⚠️ 仕分けに成功した元画像を処理後に削除（`--sort-output` が必要。未分類のファイルと入力フォルダ内の仕分け先は保持）
 - `--force, -f`: 確認プロンプトをスキップ（自動化用）
 - `--dry-run`: 実際のファイル変更なしで操作をシミュレート
 - `--no-recursive`: トップレベルの画像のみ処理
@@ -676,7 +678,7 @@ sorted-birds/
 - ✅ **データセット品質**: 既存のデータセットの誤分類をチェック
 
 **安全上の注意:**
-- ⚠️ `--delete-source`はソースディレクトリを**完全に削除**します
+- ⚠️ `--delete-source`は仕分け済みの元画像を**完全に削除**します
 - 💡  常に最初に`--dry-run`でプレビュー
 - 📦 `--delete-source`使用前にバックアップを作成
 - ✅ `--move`の方が安全（元ファイルはsorted/に残る）

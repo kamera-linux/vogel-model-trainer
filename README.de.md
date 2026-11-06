@@ -299,7 +299,7 @@ vogel-trainer extract ~/Videos/ \
 - `--min-edge-quality`: **NEU v0.1.9** - Min. Kanten-Qualität (Sobel-Gradient, typisch 50-150)
 - `--save-quality-report`: **NEU v0.1.9** - Detaillierten Qualitätsbericht speichern
 - `--remove-background`: **🧪 EXPERIMENTELL v0.1.11** - Hintergrund mit KI entfernen (rembg)
-- `--crop-padding`: **NEU v0.1.15** - Pixel um Vogel herum erweitern (erhält Details wie Füße/Schnabel)
+- `--crop-padding`: Erkennungsbox um diesen **Prozentwert** vergrößern (positiv) oder verkleinern (negativ); mit `--remove-background` erweitern positive Werte zusätzlich die Maske um N Pixel (erhält Füße/Schnabel). Gleiches Verhalten für Videos und Bilder
 - `--bg-color [white|black|gray]`: **🧪 EXPERIMENTELL v0.1.11** - Hintergrundfarbe (Standard: gray)
 - `--bg-model [u2net|u2netp|isnet-general-use]`: **🧪 EXPERIMENTELL v0.1.11** - KI-Modell für Hintergrundentfernung (Standard: u2net)
 - `--bg-transparent`: **NEU v0.1.14** - PNG mit transparentem Hintergrund erstellen (Standard: deaktiviert, grauer Hintergrund)
@@ -309,7 +309,7 @@ vogel-trainer extract ~/Videos/ \
 - `--deduplicate`: Doppelte/ähnliche Bilder überspringen (Perceptual Hashing)
 - `--similarity-threshold`: Ähnlichkeits-Schwelle für Duplikate - Hamming-Distanz 0-64 (Standard: 5)
 - `--recursive, -r`: Verzeichnisse rekursiv durchsuchen
-- `--log`: Console-Output in Log-Datei speichern (`/var/log/vogel-kamera-linux/YYYY/KWXX/`)
+- `--log`: Console-Output in Log-Datei speichern (`/var/log/vogel-kamera-linux/YYYY/KWXX/`; ohne Schreibrecht automatisch `~/.local/state/vogel-model-trainer/logs/`, überschreibbar mit `VOGEL_LOG_DIR`)
 
 **💡 Wichtig:** Verwende die gleiche `--image-size` beim Extrahieren wie später beim Training für beste Ergebnisse!
 
@@ -585,8 +585,11 @@ vogel-trainer organize ~/training-data/ -o ~/organized-data/ \
 ```
 
 **Class Balance Features:**
-- `--max-images-per-class N`: Limitiert auf N Bilder pro Klasse, löscht überschüssige
+- `--max-images-per-class N`: Höchstens N Bilder pro Klasse verwenden (Zufallsauswahl; **Quelldateien bleiben erhalten**)
 - `--tolerance N`: Maximal erlaubtes Ungleichgewicht % (Standard: 15)
+- `--split-by session|image`: `session` (Standard) hält alle Frames eines Videos im selben Split, damit die Validierung nicht durch fast identische Frames geschönt wird
+- `--seed N`: Seed für einen reproduzierbaren Split (Standard: 42)
+- `--clean`: Vorhandene `train/`- und `val/`-Ordner im Ausgabeverzeichnis vorher entfernen
   - < 10%: ✅ Perfekt
   - 10-15%: ⚠️ Warnung
   - > 15%: ❌ Fehler mit Empfehlungen
@@ -955,7 +958,7 @@ vogel-trainer classify --species-model ~/models/final/ ~/images/ \
 - `--top-k, -k`: Anzahl Top-Vorhersagen (1-5, Standard: 1)
 - `--batch-size, -b`: Verarbeitungs-Batch-Größe (Standard: 32)
 - `--move`: Dateien verschieben statt kopieren (spart Speicherplatz)
-- `--delete-source`: ⚠️ Quellverzeichnis nach Verarbeitung löschen
+- `--delete-source`: ⚠️ Erfolgreich sortierte Quellbilder nach der Verarbeitung löschen (benötigt `--sort-output`; nicht klassifizierte Dateien und ein Sortierordner innerhalb des Eingabeordners bleiben erhalten)
 - `--force, -f`: Bestätigungs-Prompts überspringen (für Automatisierung)
 - `--dry-run`: Probelauf ohne tatsächliche Änderungen
 - `--no-recursive`: Nur Top-Level Bilder verarbeiten
@@ -983,7 +986,7 @@ sorted-birds/
 - ✅ **Dataset-Qualität**: Existierende Datasets auf Fehlklassifikationen prüfen
 
 **Sicherheitshinweise:**
-- ⚠️ `--delete-source` löscht das Quellverzeichnis **DAUERHAFT**
+- ⚠️ `--delete-source` löscht sortierte Quellbilder **DAUERHAFT**
 - 💡 Immer erst `--dry-run` ausführen zum Testen
 - 📦 Backups vor `--delete-source` erstellen
 - ✅ `--move` als sichere Alternative (behält Originale in sorted/)

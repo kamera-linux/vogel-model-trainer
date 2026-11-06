@@ -1,6 +1,5 @@
 """Test CLI functionality."""
 import subprocess
-import pytest
 
 
 def test_vogel_trainer_command_exists():

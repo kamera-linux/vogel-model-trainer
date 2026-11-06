@@ -5,10 +5,11 @@ Script to test the trained custom bird classifier on sample images.
 
 import sys
 from pathlib import Path
-from transformers import pipeline
-from PIL import Image
-import numpy as np
+
 import cv2
+import numpy as np
+from PIL import Image
+from transformers import pipeline
 
 def validate_gray_background(image_path: str, min_gray_ratio: float = 0.05, 
                              max_gray_ratio: float = 0.95, gray_tolerance: int = 30):
@@ -33,11 +34,12 @@ def validate_gray_background(image_path: str, min_gray_ratio: float = 0.05,
     """
     try:
         # Load image
-        img = Image.open(image_path)
+        with Image.open(image_path) as src_img:
+            img = src_img.copy()
         
         # Convert to RGB if needed (handle RGBA)
         if img.mode == 'RGBA':
-            # Create white background for transparent areas
+            # Gray background for transparent areas
             background = Image.new('RGB', img.size, (128, 128, 128))
             background.paste(img, mask=img.split()[3])
             img = background
@@ -128,7 +130,8 @@ def validate_transparent_image(image_path: str, min_visible_pixels: int = 500,
     """
     try:
         # Load image with PIL
-        img = Image.open(image_path)
+        with Image.open(image_path) as src_img:
+            img = src_img.copy()
         
         # Check if image has alpha channel
         if img.mode != 'RGBA':
@@ -211,107 +214,101 @@ def validate_transparent_image(image_path: str, min_visible_pixels: int = 500,
             'largest_region': 0
         }
 
-def test_model(model_path: str, data_dir: str = None, image_path: str = None):
+def test_model(model_path: str, data_dir: str = None, image_path: str = None,
+               samples: int = 0, seed: int = 42):
     """
-    Test the model on validation dataset or single image.
-    
+    Test the model on the validation dataset or a single image.
+
     Args:
         model_path: Path to trained model directory
         data_dir: Path to organized dataset directory (with val/ folder)
         image_path: Path to single image file (alternative to data_dir)
-    
+        samples: Images per species to test (0 = all images)
+        seed: Random seed used when sampling
+
     Returns:
         dict: Test results with accuracy metrics
     """
-    from pathlib import Path
     import random
+    import torch
     from vogel_model_trainer.i18n import _
-    
+    from vogel_model_trainer.utils.image import find_images, load_rgb
+
     model_path = str(Path(model_path).expanduser())
-    
+
     print(_('test_loading_model', path=model_path))
     classifier = pipeline(
         "image-classification",
         model=model_path,
-        device=-1  # CPU
+        device=0 if torch.cuda.is_available() else -1,
     )
-    
+
     # Single image test
     if image_path:
         image_path = str(Path(image_path).expanduser())
         print(_('test_classifying_image', path=image_path))
-        img = Image.open(image_path)
-        
-        results = classifier(img, top_k=5)
-        
+        results = classifier(load_rgb(image_path), top_k=5)
+
         print(_('test_results'))
         print("=" * 50)
         for i, result in enumerate(results, 1):
             print(f"{i}. {result['label']:15s} - {result['score']:.4f} ({result['score']*100:.1f}%)")
-        
+
         return {"image": image_path, "predictions": results}
-    
-    # Validation set test
-    if data_dir:
-        data_dir = Path(data_dir).expanduser()
-        val_dir = data_dir / "val"
-        
-        if not val_dir.exists():
-            raise FileNotFoundError(f"Validation directory not found: {val_dir}")
-        
-        print(_('test_on_validation', path=val_dir))
-        print("=" * 70)
-        
-        species = [d.name for d in val_dir.iterdir() if d.is_dir()]
-        correct = 0
-        total = 0
-        results_by_species = {}
-        
-        for sp in sorted(species):
-            species_dir = val_dir / sp
-            images = list(species_dir.glob("*.jpg"))
-            
-            if not images:
-                print(_('test_no_images_found', species=sp))
-                continue
-            
-            # Test random sample
-            sample_size = min(5, len(images))
-            sample_images = random.sample(images, sample_size)  # nosec B311 - local testing, not cryptographic
-            
-            sp_correct = 0
-            for img_path in sample_images:
-                img = Image.open(img_path)
-                predictions = classifier(img, top_k=1)
-                predicted = predictions[0]['label']
-                confidence = predictions[0]['score']
-                
-                is_correct = predicted == sp
-                sp_correct += is_correct
-                total += 1
-                
-                status = "✅" if is_correct else "❌"
-                if not is_correct:  # Nur Fehler anzeigen
-                    print(f"{status} {sp:12s} -> {predicted:12s} ({confidence:.4f})")
-            
-            correct += sp_correct
-            sp_accuracy = sp_correct / sample_size
-            results_by_species[sp] = sp_accuracy
-            print(f"   {sp:12s}: {sp_correct}/{sample_size} = {sp_accuracy*100:.1f}%")
-        
-        overall_accuracy = correct / total if total > 0 else 0
-        
-        print("=" * 70)
-        print(_('test_overall_accuracy', correct=correct, total=total, accuracy=overall_accuracy*100))
-        
-        return {
-            "overall_accuracy": overall_accuracy,
-            "by_species": results_by_species,
-            "correct": correct,
-            "total": total
-        }
-    
-    raise ValueError("Entweder data_dir oder image_path muss angegeben werden")
+
+    if not data_dir:
+        raise ValueError("Either data_dir or image_path must be given")
+
+    data_dir = Path(data_dir).expanduser()
+    val_dir = data_dir / "val"
+    if not val_dir.exists():
+        raise FileNotFoundError(f"Validation directory not found: {val_dir}")
+
+    print(_('test_on_validation', path=val_dir))
+    print("=" * 70)
+
+    rng = random.Random(seed)
+    species = sorted(d.name for d in val_dir.iterdir() if d.is_dir())
+    correct = 0
+    total = 0
+    results_by_species = {}
+
+    for sp in species:
+        images = find_images(val_dir / sp, recursive=False)
+        if not images:
+            print(_('test_no_images_found', species=sp))
+            continue
+
+        if samples and samples < len(images):
+            images = rng.sample(images, samples)  # nosec B311 - local testing, not cryptographic
+
+        sp_correct = 0
+        for img_path in images:
+            prediction = classifier(load_rgb(img_path), top_k=1)[0]
+            predicted, confidence = prediction['label'], prediction['score']
+            if predicted == sp:
+                sp_correct += 1
+            else:  # only show errors
+                print(f"❌ {sp:12s} -> {predicted:12s} ({confidence:.4f})  {img_path.name}")
+            total += 1
+
+        correct += sp_correct
+        sp_accuracy = sp_correct / len(images)
+        results_by_species[sp] = sp_accuracy
+        print(f"   {sp:12s}: {sp_correct}/{len(images)} = {sp_accuracy*100:.1f}%")
+
+    overall_accuracy = correct / total if total > 0 else 0
+
+    print("=" * 70)
+    print(_('test_overall_accuracy', correct=correct, total=total, accuracy=overall_accuracy*100))
+
+    return {
+        "overall_accuracy": overall_accuracy,
+        "by_species": results_by_species,
+        "correct": correct,
+        "total": total
+    }
+
 
 if __name__ == "__main__":
     from vogel_model_trainer.i18n import _
