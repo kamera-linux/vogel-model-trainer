@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.29] - 2026-11-06
+
 ### Fixed
 - **`train` crashed with transformers 5.x**: the image processor is now passed as `processing_class` (falls back to `tokenizer` on older versions)
 - **`train --model` was ignored**: the requested base model is now actually loaded (previously always `google/efficientnet-b0`)
