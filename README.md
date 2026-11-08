@@ -50,7 +50,7 @@ We provide pre-trained models on Hugging Face for classifying 8 common German ga
 - ✅ **Perfect classification** for 5 out of 8 species
 - ✅ **EfficientNet-B2** - High-accuracy architecture
 
-🔗 **[kamera-linux/german-bird-classifier-v2](https://huggingface.co/kamera-linux/german-bird-classifier-v2)** (v1, deprecated)
+🔗 **[kamera-linux/german-bird-classifier](https://huggingface.co/kamera-linux/german-bird-classifier)** (v1, deprecated)
 - 87.69% accuracy - Legacy model for compatibility
 
 **Supported Species:**
